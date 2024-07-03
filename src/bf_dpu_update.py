@@ -53,6 +53,7 @@ class Err_Num(Enum):
     NOT_SUPPORT_SIMPLE_UPDATE_PROTOCOL    = 24
     BIOS_FACTORY_RESET_FAIL               = 25
     TASK_TIMEOUT                          = 26
+    PUSH_URI_NOT_FOUND                    = 27
     OTHER_EXCEPTION                       = 127
 
 
@@ -83,6 +84,7 @@ Err_Str = {
    Err_Num.NOT_SUPPORT_SIMPLE_UPDATE_PROTOCOL : 'NO supported BFB update protocol',
    Err_Num.BIOS_FACTORY_RESET_FAIL        : 'Failed to do BIOS factory reset',
    Err_Num.TASK_TIMEOUT                   : 'Task timeout',
+   Err_Num.PUSH_URI_NOT_FOUND             : 'Push URI not found',
    Err_Num.OTHER_EXCEPTION                : 'Other Errors',
 }
 
@@ -129,9 +131,13 @@ class BF_DPU_Update(object):
         self._local_http_server_port = None
 
 
-    def _get_url_base(self):
+    def _get_prot_ip_port(self):
         port = '' if self.bmc_port is None else ':{}'.format(self.bmc_port)
-        return self.protocol + self.bmc_ip + port + self.redfish_root
+        return self.protocol + self.bmc_ip + port
+
+
+    def _get_url_base(self):
+        return self._get_prot_ip_port() + self.redfish_root
 
 
     def _get_local_ip(self):
@@ -298,6 +304,33 @@ class BF_DPU_Update(object):
         return protocols
 
 
+    def get_push_uri(self):
+        url = self._get_url_base() + '/UpdateService'
+        response = self._http_get(url)
+        self.log('Get UpdateService Attribute', response)
+        self._handle_status_code(response, [200])
+
+        deprecated_uri = None
+        multi_part_uri = None
+        '''
+        {
+          ...
+          "HttpPushUri": "/redfish/v1/UpdateService/update",
+          "MultipartHttpPushUri": "/redfish/v1/UpdateService/update-multipart",
+          ...
+        }
+        '''
+        try:
+            deprecated_uri = response.json()['HttpPushUri']
+        except:
+            deprecated_uri = None
+        try:
+            multi_part_uri = response.json()['MultipartHttpPushUri']
+        except:
+            multi_part_uri = None
+        return (multi_part_uri, deprecated_uri)
+
+
     @staticmethod
     def _update_in_progress_err_handler(response):
         try:
@@ -372,8 +405,7 @@ class BF_DPU_Update(object):
         return self.update_bfb_impl('HTTP', self._get_local_ip() + ':' + str(self._local_http_server_port) + '//' + os.path.basename(self.fw_file_path))
 
 
-    def update_bmc_fw_multipart(self):
-        url = self._get_url_base() + '/UpdateService/update-multipart'
+    def update_bmc_fw_multipart(self, url):
         with open(self.fw_file_path, 'rb') as fw_file:
             params  = {
                 "ForceUpdate": not self.skip_same_version
@@ -389,8 +421,7 @@ class BF_DPU_Update(object):
         return self._extract_task_handle(response)
 
 
-    def update_bmc_fw_simple(self):
-        url = self._get_url_base() + '/UpdateService'
+    def update_bmc_fw_deprecated(self, url):
         headers = {
             'Content-Type' : 'application/octet-stream'
         }
@@ -401,9 +432,19 @@ class BF_DPU_Update(object):
         return self._extract_task_handle(response)
 
 
+    def update_bmc_fw(self):
+        multi_part_uri, deprecated_uri  = self.get_push_uri()
+        if multi_part_uri is not None:
+            task_handle = self.update_bmc_fw_multipart(self._get_prot_ip_port() + multi_part_uri)
+        elif deprecated_uri is not None:
+            task_handle = self.update_bmc_fw_deprecated(self._get_prot_ip_port() + deprecated_uri)
+        else:
+            raise Err_Exception(Err_Num.PUSH_URI_NOT_FOUND)
+        return task_handle
+
+
     def _get_task_status(self, task_handle):
-        task_handle = task_handle[len(self.redfish_root):]
-        url = self._get_url_base() + task_handle
+        url = self._get_prot_ip_port() + task_handle
         response = self._http_get(url)
         self.log('Get Task Satatus', response)
         self._handle_status_code(response, [200])
@@ -634,7 +675,7 @@ class BF_DPU_Update(object):
 
         # Start firmware update task
         print("Start to upload firmware")
-        task_handle = self.update_bmc_fw_multipart()
+        task_handle = self.update_bmc_fw()
         ret = self._wait_task(task_handle, max_second=(20*60 if is_bmc else 4*60), check_step=(10 if is_bmc else 2))
         if not ret:
             print("Skip updating the same version: {}".format(old_ver))
