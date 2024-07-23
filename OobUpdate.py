@@ -1,4 +1,4 @@
-#!/bin/env python3
+#!/usr/bin/env python3
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
 

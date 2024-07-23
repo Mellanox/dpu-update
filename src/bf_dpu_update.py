@@ -1,4 +1,4 @@
-#!/bin/env python3
+#!/usr/bin/env python3
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
 
@@ -22,6 +22,8 @@ import stat
 from enum import Enum
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+import requests.packages.urllib3.util.ssl_
+requests.packages.urllib3.util.ssl_.DEFAULT_CIPHERS = 'ALL'
 
 
 # Number to trace various error
