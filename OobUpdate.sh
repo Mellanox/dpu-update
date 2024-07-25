@@ -14,6 +14,13 @@ function check_and_set_env()
         exit 1
     fi
 
+    # Use local openssl lib, if version < 3.6
+    second_ver=`python3 --version |cut -d. -f2`
+    if [ "$second_ver" -lt 6 ];then
+        ABS_PATH=`realpath $BASE_DIR`
+        export LD_LIBRARY_PATH=$ABS_PATH/lib/openssl-1.1.0:$LD_LIBRARY_PATH
+    fi
+
     # Check and install python requests module
     python3 -m pip show requests > /dev/null 2>&1
     if [ $? != 0 ];then
