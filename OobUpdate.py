@@ -49,7 +49,8 @@ def main():
                                                  args.module,
                                                  args.skip_same_version,
                                                  args.debug,
-                                                 args.output_file)
+                                                 args.output_file,
+                                                 use_curl = True)
 
         if args.show_all_versions:
             dpu_update.show_all_versions()

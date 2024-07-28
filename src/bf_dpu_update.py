@@ -3,104 +3,16 @@
 # Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
 
 
-"""
-python3 -m pip install requests
-or install from local packages:
-python3 -m pip install --no-index --find-links=./packages requests
-"""
-
 import time
 import re
 import sys
 import os
 import json
 import socket
-import requests
 import getpass
 import subprocess
 import stat
-from enum import Enum
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-import requests.packages.urllib3.util.ssl_
-requests.packages.urllib3.util.ssl_.DEFAULT_CIPHERS = 'ALL'
-
-
-# Number to trace various error
-class Err_Num(Enum):
-    ERR_NONE                              = 0
-    ARG_FOR_UPDATE_NOT_GIVEN              = 1
-    ARG_FOR_VERSION_NOT_GIVEN             = 2
-    FILE_NOT_ACCESSIBLE                   = 3
-    FW_FILE_NOT_MATCH_MODULE              = 4
-    BMC_CONNECTION_FAIL                   = 5
-    BMC_CONNECTION_RESET                  = 6
-    BMC_CONNECTION_OTHER_ERR              = 7
-    ACCOUNT_LOCKED                        = 8
-    INVALID_USERNAME_OR_PASSWORD          = 9
-    ANOTHER_UPDATE_IS_IN_PROGRESS         = 10
-    UNSUPPORTED_MODULE                    = 11
-    BAD_RESPONSE_FORMAT                   = 12
-    EMPTY_FW_VER                          = 13
-    INVALID_STATUS_CODE                   = 14
-    FAILED_TO_GET_LOCAL_KEY               = 15
-    FAILED_TO_ENABLE_BMC_RSHIM            = 16
-    NOT_SUPPORT_CEC_RESTART               = 17
-    BMC_BACKGROUND_BUSY                   = 18
-    PUBLIC_KEY_NOT_EXCHANGED              = 19
-    TASK_FAILED                           = 20
-    NEW_VERION_CHECK_FAILED               = 21
-    FAILED_TO_GET_VER_FROM_FILE           = 22
-    FAILED_TO_START_HTTP_SERVER           = 23
-    NOT_SUPPORT_SIMPLE_UPDATE_PROTOCOL    = 24
-    BIOS_FACTORY_RESET_FAIL               = 25
-    TASK_TIMEOUT                          = 26
-    PUSH_URI_NOT_FOUND                    = 27
-    HTTP_FILE_SERVER_NOT_ACCESSIBLE       = 28
-    INVALID_BMC_ADDRESS                   = 29
-    OTHER_EXCEPTION                       = 127
-
-
-Err_Str = {
-   Err_Num.ARG_FOR_UPDATE_NOT_GIVEN       : 'BMC IP/Username/Password, Firmware file path and Module are needed to do firmware update',
-   Err_Num.ARG_FOR_VERSION_NOT_GIVEN      : 'BMC IP/Username/Password are needed to show versions of all firmwares',
-   Err_Num.FILE_NOT_ACCESSIBLE            : 'File is not accessible',
-   Err_Num.FW_FILE_NOT_MATCH_MODULE       : 'Firmware file is NOT for the module to update',
-   Err_Num.BMC_CONNECTION_FAIL            : 'Failed to establish connection to BMC. Please check the BMC IP and port',
-   Err_Num.BMC_CONNECTION_RESET           : 'Connection to BMC being reset by remove',
-   Err_Num.BMC_CONNECTION_OTHER_ERR       : 'Connection failed',
-   Err_Num.ACCOUNT_LOCKED                 : 'Account has been locked',
-   Err_Num.INVALID_USERNAME_OR_PASSWORD   : 'Invalid username or password',
-   Err_Num.ANOTHER_UPDATE_IS_IN_PROGRESS  : 'Another update is in progress',
-   Err_Num.UNSUPPORTED_MODULE             : 'Unsupported updating module',
-   Err_Num.BAD_RESPONSE_FORMAT            : 'Bad response format',
-   Err_Num.EMPTY_FW_VER                   : 'Empty firmware version in response',
-   Err_Num.INVALID_STATUS_CODE            : 'Invalid response status code',
-   Err_Num.FAILED_TO_GET_LOCAL_KEY        : 'Failed to get local SSH Key',
-   Err_Num.FAILED_TO_ENABLE_BMC_RSHIM     : 'Failed to enable BMC rshim',
-   Err_Num.NOT_SUPPORT_CEC_RESTART        : 'CEC restart redfish API is not supported in this version',
-   Err_Num.BMC_BACKGROUND_BUSY            : 'BMC is busy on background operation',
-   Err_Num.PUBLIC_KEY_NOT_EXCHANGED       : 'Public key was not exchanged with BMC successfully',
-   Err_Num.TASK_FAILED                    : 'Task failed',
-   Err_Num.NEW_VERION_CHECK_FAILED        : 'New running version check failed',
-   Err_Num.FAILED_TO_GET_VER_FROM_FILE    : 'Failed to get firmware version from file',
-   Err_Num.FAILED_TO_START_HTTP_SERVER    : 'Failed to start HTTP server',
-   Err_Num.NOT_SUPPORT_SIMPLE_UPDATE_PROTOCOL : 'NO supported BFB update protocol',
-   Err_Num.BIOS_FACTORY_RESET_FAIL        : 'Failed to do BIOS factory reset',
-   Err_Num.TASK_TIMEOUT                   : 'Task timeout',
-   Err_Num.PUSH_URI_NOT_FOUND             : 'Push URI not found',
-   Err_Num.HTTP_FILE_SERVER_NOT_ACCESSIBLE : 'HTTP file server is not accessible from BMC',
-   Err_Num.INVALID_BMC_ADDRESS            : 'Invalid BMC Address',
-   Err_Num.OTHER_EXCEPTION                : 'Other Errors',
-}
-
-
-class Err_Exception(Exception):
-    def __init__(self, err_num, msg=None):
-        self.err_num = err_num
-        self.msg     = msg
-    def __str__(self):
-        return Err_Str[self.err_num] + (('; ' + self.msg + '.') if self.msg is not None else '')
+from error_num import *
 
 
 class BF_DPU_Update(object):
@@ -121,7 +33,7 @@ class BF_DPU_Update(object):
     }
 
 
-    def __init__(self, bmc_ip, bmc_port, username, password, fw_file_path, module, skip_same_version, debug=False, log_file=None):
+    def __init__(self, bmc_ip, bmc_port, username, password, fw_file_path, module, skip_same_version, debug=False, log_file=None, use_curl=True):
         self.bmc_ip            = self._parse_bmc_addr(bmc_ip)
         self.bmc_port          = bmc_port
         self.username          = username
@@ -135,6 +47,8 @@ class BF_DPU_Update(object):
         self.redfish_root      = '/redfish/v1'
         self.process_flag      = True
         self._local_http_server_port = None
+        self.use_curl          = use_curl
+        self.http_accessor     = self._get_http_accessor()
 
 
     def _get_prot_ip_port(self):
@@ -157,6 +71,34 @@ class BF_DPU_Update(object):
 
     def _get_local_user(self):
         return getpass.getuser()
+
+
+    def _get_http_accessor(self):
+        if self.use_curl:
+            from http_accessor_curl import HTTP_Accessor
+        else:
+            from http_accessor_requests import HTTP_Accessor
+        return HTTP_Accessor
+
+
+    def _http_get(self, url, headers=None, timeout=(60, 60)):
+        return self.http_accessor(url, 'GET', self.username, self.password, headers, timeout).access()
+
+
+    def _http_post(self, url, data, headers=None, timeout=(60, 60)):
+        return self.http_accessor(url, 'POST', self.username, self.password, headers, timeout).access(data)
+
+
+    def _http_patch(self, url, data, headers=None, timeout=(60, 60)):
+        return self.http_accessor(url, 'PATCH', self.username, self.password, headers, timeout).access(data)
+
+
+    def _upload_file(self, url, file_path, headers=None, timeout=(60, 60)):
+        return self.http_accessor(url, 'POST', self.username, self.password, headers, timeout).upload_file(file_path)
+
+
+    def _multi_part_push(self, url, param, headers=None, timeout=(60, 60)):
+        return self.http_accessor(url, 'POST', self.username, self.password, headers, timeout).multi_part_push(param)
 
 
     def _get_truncated_data(self, data):
@@ -256,49 +198,6 @@ class BF_DPU_Update(object):
         if self.log_file is not None:
             with open(self.log_file, 'a') as f:
                 f.write(data)
-
-
-    def connection_exception(func):
-        def wrapper(self, *args, **kwargs):
-            try:
-                return func(self, *args, **kwargs)
-            except requests.exceptions.ConnectTimeout as timeout:
-                raise Err_Exception(Err_Num.BMC_CONNECTION_FAIL)
-            except requests.exceptions.ConnectionError as connect_err:
-                raise Err_Exception(Err_Num.BMC_CONNECTION_RESET)
-            except Exception as e:
-                raise Err_Exception(Err_Num.BMC_CONNECTION_OTHER_ERR, str(e))
-        return wrapper
-
-
-    @connection_exception
-    def _http_get(self, url, headers=None, timeout=(60, 60)):
-        return requests.get(url,
-                            headers=headers,
-                            auth=(self.username, self.password),
-                            verify=False,
-                            timeout=timeout)
-
-
-    @connection_exception
-    def _http_post(self, url, data=None, files=None, headers=None, timeout=(60, 60)):
-        return requests.post(url,
-                             data=data,
-                             files=files,
-                             headers=headers,
-                             auth=(self.username, self.password),
-                             verify=False,
-                             timeout=timeout)
-
-
-    @connection_exception
-    def _http_patch(self, url, data, headers=None, timeout=(60, 60)):
-        return requests.patch(url,
-                              data=data,
-                              headers=headers,
-                              auth=(self.username, self.password),
-                              verify=False,
-                              timeout=timeout)
 
 
     def _handle_status_code(self, response, acceptable_codes, err_handler=None):
@@ -492,15 +391,22 @@ class BF_DPU_Update(object):
 
 
     def update_bmc_fw_multipart(self, url):
-        with open(self.fw_file_path, 'rb') as fw_file:
-            params  = {
-                "ForceUpdate": not self.skip_same_version
+        update_params  = {
+            "ForceUpdate": not self.skip_same_version
+        }
+        multi_part_param = {
+            'UpdateParameters' : {
+                'data'         : json.dumps(update_params),
+                'is_file_path' : False,
+                'type'         : None
+            },
+            'UpdateFile'       : {
+                'data'         : self.fw_file_path,
+                'is_file_path' : True,
+                'type'         : 'application/octet-stream'
             }
-            files = {
-                'UpdateParameters' : json.dumps(params),
-                'UpdateFile'       : fw_file,
-            }
-            response = self._http_post(url, files=files)
+        }
+        response = self._multi_part_push(url, multi_part_param)
 
         self.log('Update Firmware', response)
         self._handle_status_code(response, [202], self._update_in_progress_err_handler)
@@ -511,8 +417,7 @@ class BF_DPU_Update(object):
         headers = {
             'Content-Type' : 'application/octet-stream'
         }
-        with open(self.fw_file_path, 'rb') as fw_file:
-            response = self._http_post(url, data=fw_file, headers=headers)
+        response = self._upload_file(url, self.fw_file_path, headers=headers)
         self.log('Update Firmware', response)
         self._handle_status_code(response, [202], self._update_in_progress_err_handler)
         return self._extract_task_handle(response)
