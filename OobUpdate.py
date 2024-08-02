@@ -25,6 +25,7 @@ def get_arg_parser():
     parser.add_argument('-C',             action='store_true',         dest="clear_config",           required=False, help='Reset to factory configuration (Only used for BMC|BIOS)')
     parser.add_argument('-o', '--output', metavar="<output_log_file>", dest="output_file",  type=str, required=False, help='Output log file')
     parser.add_argument('-p', '--port',   metavar="<bmc_port>",        dest="bmc_port",     type=str, required=False, help='Port of BMC (443 by default).')
+    parser.add_argument('--bios_update_protocol', metavar='<bios_update_protocol>', dest="bios_update_protocol", required=False, help=argparse.SUPPRESS, choices=('HTTP', 'SCP'))
     parser.add_argument('-v', '--version',     action='store_true',    dest="show_version",           required=False, help='Show the version of this scripts')
     parser.add_argument('--skip_same_version', action='store_true',    dest="skip_same_version",      required=False, help='Do not upgrade, if upgrade version is the same as current running version')
     parser.add_argument('--show_all_versions', action='store_true',    dest="show_all_versions",      required=False, help=argparse.SUPPRESS)
@@ -50,6 +51,7 @@ def main():
                                                  args.skip_same_version,
                                                  args.debug,
                                                  args.output_file,
+                                                 bfb_update_protocol = args.bios_update_protocol,
                                                  use_curl = True)
 
         if args.show_all_versions:

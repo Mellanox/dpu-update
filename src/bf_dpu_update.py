@@ -33,7 +33,7 @@ class BF_DPU_Update(object):
     }
 
 
-    def __init__(self, bmc_ip, bmc_port, username, password, fw_file_path, module, skip_same_version, debug=False, log_file=None, use_curl=True):
+    def __init__(self, bmc_ip, bmc_port, username, password, fw_file_path, module, skip_same_version, debug=False, log_file=None, use_curl=True, bfb_update_protocol = None):
         self.bmc_ip            = self._parse_bmc_addr(bmc_ip)
         self.bmc_port          = bmc_port
         self.username          = username
@@ -49,6 +49,7 @@ class BF_DPU_Update(object):
         self._local_http_server_port = None
         self.use_curl          = use_curl
         self.http_accessor     = self._get_http_accessor()
+        self.bfb_update_protocol = bfb_update_protocol
 
 
     def _get_prot_ip_port(self):
@@ -322,12 +323,38 @@ class BF_DPU_Update(object):
 
 
     def update_bfb(self):
-        protocols = self.get_simple_update_protocols()
-        if 'HTTP' in protocols:
-            return ('HTTP', self.update_bfb_by_http())
-        elif 'SCP' in protocols:
-            return ('SCP', self.update_bfb_by_scp())
-        raise Err_Exception(Err_Num.NOT_SUPPORT_SIMPLE_UPDATE_PROTOCOL, 'The current BFB update protocols are {}'.format(protocols))
+        protocols_supported_by_bmc = self.get_simple_update_protocols()
+        # Current script only support HTTP/SCP
+        protocols = []
+        if 'HTTP' in protocols_supported_by_bmc:
+            protocols.append('HTTP')
+        if 'SCP' in protocols_supported_by_bmc:
+            protocols.append('SCP')
+
+        # Select protocol to be used
+        protocol = None
+        if self.bfb_update_protocol is not None:
+            # Use the protocol provided by user
+            if self.bfb_update_protocol not in protocols:
+                raise Err_Exception(Err_Num.NOT_SUPPORT_SIMPLE_UPDATE_PROTOCOL, '{} is not in supported BFB update protocols {}'.format(self.bfb_update_protocol, protocols))
+            protocol = self.bfb_update_protocol
+        else:
+            # Perfer to use HTTP, if user did not provide a protocol
+            if 'HTTP' in protocols:
+                protocol = 'HTTP'
+            elif 'SCP' in protocols:
+                protocol = 'SCP'
+            if protocol is None:
+                raise Err_Exception(Err_Num.NOT_SUPPORT_SIMPLE_UPDATE_PROTOCOL, 'The current supported BFB update protocols are {}'.format(protocols))
+
+        return (protocol, self.update_bfb_by_protocol(protocol))
+
+
+    def update_bfb_by_protocol(self, protocol):
+        if protocol == 'HTTP':
+            return self.update_bfb_by_http()
+        elif protocol == 'SCP':
+            return self.update_bfb_by_scp()
 
 
     def update_bfb_impl(self, protocol, image_uri):
@@ -741,7 +768,7 @@ class BF_DPU_Update(object):
                 break
             else:
                 self._print_process(i)
-                time.sleep(2)
+                time.sleep(4)
         print()
 
 
