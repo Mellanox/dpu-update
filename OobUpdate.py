@@ -12,16 +12,16 @@ import bf_dpu_update
 
 
 # Version of this script tool
-Version = '1.0.3'
+Version = '24.10-1.0'
 
 
 def get_arg_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-U',             metavar="<username>",        dest="username",     type=str, required=True, help='Username of BMC')
-    parser.add_argument('-P',             metavar="<password>",        dest="password",     type=str, required=True, help='Password of BMC')
+    parser.add_argument('-U',             metavar="<username>",        dest="username",     type=str, required=False, help='Username of BMC')
+    parser.add_argument('-P',             metavar="<password>",        dest="password",     type=str, required=False, help='Password of BMC')
     parser.add_argument('-F',             metavar="<firmware_file>",   dest="fw_file_path", type=str, required=False, help='Firmware file path (absolute/relative)')
     parser.add_argument('-T',             metavar="<module>",          dest="module",       type=str, required=False, help='The module to be updated: BMC|CEC|BIOS|FRU', choices=('BMC', 'CEC', 'BIOS', 'FRU'))
-    parser.add_argument('-H',             metavar="<bmc_ip>",          dest="bmc_ip",       type=str, required=True, help='IP/Host of BMC')
+    parser.add_argument('-H',             metavar="<bmc_ip>",          dest="bmc_ip",       type=str, required=False, help='IP/Host of BMC')
     parser.add_argument('-C',             action='store_true',         dest="clear_config",           required=False, help='Reset to factory configuration (Only used for BMC|BIOS)')
     parser.add_argument('-o', '--output', metavar="<output_log_file>", dest="output_file",  type=str, required=False, help='Output log file')
     parser.add_argument('-p', '--port',   metavar="<bmc_port>",        dest="bmc_port",     type=str, required=False, help='Port of BMC (443 by default).')
@@ -40,6 +40,12 @@ def main():
 
     if args.show_version:
         print(Version)
+        return 0
+    if not (
+        args.username and args.password and args.bmc_ip
+    ):
+        print("Please use -h/--help to get help informations, "
+              "the following arguments are required for Update: -U, -P, -H.")
         return 0
 
     try:
