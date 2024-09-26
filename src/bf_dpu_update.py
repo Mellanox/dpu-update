@@ -959,7 +959,7 @@ class BF_DPU_Update(object):
         }
         response = self._http_post(url, data=json.dumps(data), headers=headers)
         self.log('Reboot BIOS', response)
-        self._handle_status_code(response, [204])
+        self._handle_status_code(response, [200, 204])
 
 
     def get_system_power_state(self):
