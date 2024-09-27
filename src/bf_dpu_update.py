@@ -382,7 +382,7 @@ class BF_DPU_Update(object):
         }
         response = self._http_post(url, data=json.dumps(data), headers=headers)
         self.log('Update BFB Firmware', response)
-        self._handle_status_code(response, [202], self._update_in_progress_err_handler)
+        self._handle_status_code(response, [200, 202], self._update_in_progress_err_handler)
         return self._extract_task_handle(response)
 
 
@@ -448,7 +448,7 @@ class BF_DPU_Update(object):
         response = self._multi_part_push(url, multi_part_param)
 
         self.log('Update Firmware', response)
-        self._handle_status_code(response, [202], self._update_in_progress_err_handler)
+        self._handle_status_code(response, [200, 202], self._update_in_progress_err_handler)
         return self._extract_task_handle(response)
 
 
@@ -458,7 +458,7 @@ class BF_DPU_Update(object):
         }
         response = self._upload_file(url, self.fw_file_path, headers=headers)
         self.log('Update Firmware', response)
-        self._handle_status_code(response, [202], self._update_in_progress_err_handler)
+        self._handle_status_code(response, [200, 202], self._update_in_progress_err_handler)
         return self._extract_task_handle(response)
 
 
