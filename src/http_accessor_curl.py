@@ -84,8 +84,9 @@ class HTTP_Accessor(object):
                 header_param += '-H "{}: {}" '.format(k, self.headers[k])
 
         ts = str(time.time())
-        resp_body_file    = '/tmp/dpu_update_resp_body_{}.txt'.format(ts)
-        resp_headers_file = '/tmp/dpu_update_resp_headers_{}.txt'.format(ts)
+        pid = os.getpid()
+        resp_body_file    = '/tmp/dpu_update_resp_body_{}_{}.txt'.format(ts, pid)
+        resp_headers_file = '/tmp/dpu_update_resp_headers_{}_{}.txt'.format(ts, pid)
 
         output_param  = '-D {} -o {}'.format(resp_headers_file, resp_body_file)
         auth_param    = "-u '{}':'{}'".format(self.username, self.password)
@@ -103,7 +104,7 @@ class HTTP_Accessor(object):
 
         resp_body    = self._read_file(resp_body_file)
         resp_headers = self._read_file(resp_headers_file)
-        os.system('rm -f /tmp/dpu_update_resp*')
+        os.system('rm -f {} {}'.format(resp_body_file, resp_headers_file))
 
         request  = CURL_Request(self.url, self.method, command)
         response = CURL_Response(resp_body, resp_headers, request)
