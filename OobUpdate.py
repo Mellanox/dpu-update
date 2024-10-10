@@ -12,7 +12,7 @@ import bf_dpu_update
 
 
 # Version of this script tool
-Version = '24.10-1.0'
+Version = '24.10-2.0'
 
 
 def get_arg_parser():
