@@ -651,7 +651,7 @@ class BF_DPU_Update(object):
         if not os.access(self.fw_file_path, os.R_OK):
             raise Err_Exception(Err_Num.FILE_NOT_ACCESSIBLE, 'Firmware file: {}'.format(self.fw_file_path))
 
-        if self.log_file is not None and not os.access(self.log_file, os.W_OK) and not os.access(os.path.dirname(self.log_file), os.W_OK):
+        if self.log_file is not None and not os.access(self.log_file, os.W_OK) and not os.access(os.path.abspath(os.path.dirname(self.log_file)), os.W_OK):
             raise Err_Exception(Err_Num.FILE_NOT_ACCESSIBLE, 'Log file: {}'.format(self.log_file))
         return True
 
