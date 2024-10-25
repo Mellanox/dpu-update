@@ -13,6 +13,7 @@ import getpass
 import subprocess
 import stat
 import datetime
+from multiprocessing import Process
 from error_num import *
 
 
@@ -48,6 +49,8 @@ class BF_DPU_Update(object):
         self.protocol          = 'https://'
         self.redfish_root      = '/redfish/v1'
         self.process_flag      = True
+        self._http_server_process = None
+        self._http_server_port_file = "/tmp/dpu_update_http_server_port_{}.txt".format(os.getpid())
         self._local_http_server_port = None
         self.use_curl          = use_curl
         self.http_accessor     = self._get_http_accessor()
@@ -411,6 +414,8 @@ class BF_DPU_Update(object):
 
         httpd = _HTTPServer((self._get_local_ip(), 0), _SimpleHTTPRequestHandler)
         self._local_http_server_port = httpd.server_address[1]
+        with open(self._http_server_port_file, 'w') as f:
+            f.write(str(self._local_http_server_port))
         httpd.serve_forever()
 
 
@@ -423,8 +428,22 @@ class BF_DPU_Update(object):
             raise Err_Exception(Err_Num.FAILED_TO_START_HTTP_SERVER)
 
 
+    def create_http_server_process(self):
+        self._http_server_process = Process(target=self.http_server)
+        self._http_server_process.daemon = True
+        self._http_server_process.start()
+        time.sleep(2) # Wait process start and set the port.
+        port = None
+        with open(self._http_server_port_file, 'r') as f:
+            port = int(f.read())
+        os.system('rm -f {}'.format(self._http_server_port_file))
+        self._local_http_server_port = port
+        if not self._http_server_process.is_alive() or self._local_http_server_port is None:
+            raise Err_Exception(Err_Num.FAILED_TO_START_HTTP_SERVER)
+
+
     def update_bfb_by_http(self):
-        self.create_http_server_thread()
+        self.create_http_server_process()
         print("Start to upload BFB firmware (HTTP)")
         return self.update_bfb_impl('HTTP', self._format_ip(self._get_local_ip()) + ':' + str(self._local_http_server_port) + '//' + os.path.basename(self.fw_file_path))
 
