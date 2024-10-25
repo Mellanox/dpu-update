@@ -1059,6 +1059,7 @@ class BF_DPU_Update(object):
 
         # Send the HTTP PUT request to update the OEM FRU data
         response = self._http_put(url, data=json.dumps(oem_fru_dict), headers=headers)
+        self.log('Update OEM FRU data', response)
         if response.status_code != 200:
             raise Err_Exception(Err_Num.INVALID_STATUS_CODE, "Failed to update OEM FRU data, status code: {}".format(response.status_code))
         print("OEM FRU data updated successfully.")
