@@ -436,7 +436,7 @@ class BF_DPU_Update(object):
         port = None
         with open(self._http_server_port_file, 'r') as f:
             port = int(f.read())
-        os.system('rm -f {}'.format(self._http_server_port_file))
+        os.remove(self._http_server_port_file)
         self._local_http_server_port = port
         if not self._http_server_process.is_alive() or self._local_http_server_port is None:
             raise Err_Exception(Err_Num.FAILED_TO_START_HTTP_SERVER)
