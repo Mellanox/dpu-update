@@ -104,8 +104,10 @@ class HTTP_Accessor(object):
 
         resp_body    = self._read_file(resp_body_file)
         resp_headers = self._read_file(resp_headers_file)
-        os.remove(resp_body_file)
-        os.remove(resp_headers_file)
+        if os.access(resp_body_file, os.F_OK):
+            os.remove(resp_body_file)
+        if os.access(resp_headers_file, os.F_OK):
+            os.remove(resp_headers_file)
 
         request  = CURL_Request(self.url, self.method, command)
         response = CURL_Response(resp_body, resp_headers, request)

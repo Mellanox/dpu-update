@@ -40,6 +40,12 @@ class Err_Num(Enum):
     INVALID_BMC_ADDRESS                   = 29
     CURL_COMMAND_FAILED                   = 30
     INVALID_INPUT_PARAMETER               = 31
+    USERNAME_NOT_GIVEN                    = 32
+    PASSWORD_NOT_GIVEN                    = 33
+    BMC_IP_NOT_GIVEN                      = 34
+    MODULE_NOT_GIVEN                      = 35
+    FW_FILE_NOT_GIVEN                     = 36
+    FRU_NOT_GIVEN                         = 37
     OTHER_EXCEPTION                       = 127
 
 
@@ -75,6 +81,12 @@ Err_Str = {
    Err_Num.INVALID_BMC_ADDRESS            : 'Invalid BMC Address',
    Err_Num.CURL_COMMAND_FAILED            : 'Curl command failed',
    Err_Num.INVALID_INPUT_PARAMETER        : 'The input parameter provided is invalid',
+   Err_Num.USERNAME_NOT_GIVEN             : 'BMC user name is not given',
+   Err_Num.PASSWORD_NOT_GIVEN             : 'BMC password is not given',
+   Err_Num.BMC_IP_NOT_GIVEN               : 'BMC IP is not given',
+   Err_Num.MODULE_NOT_GIVEN               : 'Module to update is not given',
+   Err_Num.FW_FILE_NOT_GIVEN              : 'Firmware file is not given',
+   Err_Num.FRU_NOT_GIVEN                  : 'FRU is not given',
    Err_Num.OTHER_EXCEPTION                : 'Other Errors',
 }
 

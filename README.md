@@ -20,9 +20,9 @@ OobUpdate.sh is a program for updating various component firmware of BlueField D
       -U <username>         Username of BMC
       -P <password>         Password of BMC
       -F <firmware_file>    Firmware file path (absolute/relative)
-      -T <module>           The module to be updated: BMC|CEC|BIOS|FRU
+      -T <module>           The module to be updated: BMC|CEC|BIOS|FRU|CONFIG
       -H <bmc_ip>           IP/Host of BMC
-      -C                    Reset to factory configuration (Only used for BMC|BIOS)
+      -C                    Reset to factory configuration (Only used for BMC|BIOS|CONFIG)
       -o <output_log_file>, --output <output_log_file>
                             Output log file
       -p <bmc_port>, --port <bmc_port>
@@ -69,6 +69,22 @@ OobUpdate.sh is a program for updating various component firmware of BlueField D
             ATF--v2.2(release):4.8.0-14-gc58efcd, UEFI--4.8.0-11-gbd389cc
     New BIOS Firmware Version:
             ATF--v2.2(release):4.7.0-25-g5569834, UEFI--4.7.0-42-g13081ae
+
+### Update Config Image
+
+    # ./OobUpdate.sh -U dingzhi -P Nvidia20240604-- -H 10.237.121.98  -T CONFIG -F /opt/BD-config-image-4.9.0.13354-1.0.0.bfb
+    Start to Simple Update (HTTP)
+    Process-: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+    Factory reset BMC configuration
+    Process-: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+    Factory reset BIOS configuration(ResetBios) (will reboot the system)
+    Process|: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+### Restore Config
+
+    # ./OobUpdate.sh  -U dingzhi -P Nvidia20240604-- -H 10.237.121.98 -T CONFIG -C
+    Factory reset BIOS configuration(ResetBios) (will reboot the system)
+    Process-: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
 ### Update FRU data
 

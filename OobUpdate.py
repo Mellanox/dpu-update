@@ -20,7 +20,7 @@ def get_arg_parser():
     parser.add_argument('-U',             metavar="<username>",        dest="username",     type=str, required=False, help='Username of BMC')
     parser.add_argument('-P',             metavar="<password>",        dest="password",     type=str, required=False, help='Password of BMC')
     parser.add_argument('-F',             metavar="<firmware_file>",   dest="fw_file_path", type=str, required=False, help='Firmware file path (absolute/relative)')
-    parser.add_argument('-T',             metavar="<module>",          dest="module",       type=str, required=False, help='The module to be updated: BMC|CEC|BIOS|FRU', choices=('BMC', 'CEC', 'BIOS', 'FRU'))
+    parser.add_argument('-T',             metavar="<module>",          dest="module",       type=str, required=False, help='The module to be updated: BMC|CEC|BIOS|FRU|CONFIG', choices=('BMC', 'CEC', 'BIOS', 'FRU', 'CONFIG'))
     parser.add_argument('-H',             metavar="<bmc_ip>",          dest="bmc_ip",       type=str, required=False, help='IP/Host of BMC')
     parser.add_argument('-C',             action='store_true',         dest="clear_config",           required=False, help='Reset to factory configuration (Only used for BMC|BIOS)')
     parser.add_argument('-o', '--output', metavar="<output_log_file>", dest="output_file",  type=str, required=False, help='Output log file')
@@ -66,13 +66,12 @@ def main():
             dpu_update.show_all_versions()
             return 0
 
-        dpu_update.do_update()
-        if args.module == 'BMC':
-            if args.clear_config:
-                dpu_update.factory_reset_bmc()
-        elif args.module == 'BIOS':
-            if args.clear_config:
-                dpu_update.factory_reset_bios()
+        if args.fw_file_path is not None:
+            dpu_update.do_update()
+
+        if args.clear_config:
+            dpu_update.reset_config()
+
         return 0
 
     except bf_dpu_update.Err_Exception as e:

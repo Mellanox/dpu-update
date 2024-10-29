@@ -31,6 +31,7 @@ class BF_DPU_Update(object):
         'SYS_IMAGE' : 'DPU_SYS_IMAGE',
         'ARM_IMAGE' : 'golden_image_arm',
         'NIC_IMAGE' : 'golden_image_nic',
+        'CONF_IMAGE': 'golden_image_config',
         'BOARD'     : 'DPU_BOARD'
     }
 
@@ -238,10 +239,10 @@ class BF_DPU_Update(object):
         raise Err_Exception(Err_Num.INVALID_STATUS_CODE, 'status code: {}; {}'.format(response.status_code, msg))
 
 
-    def get_ver(self, module):
-        url = self._get_url_base() + '/UpdateService/FirmwareInventory/' + self.module_resource[module]
+    def get_ver_by_uri(self, uri):
+        url = self._get_prot_ip_port() + uri
         response = self._http_get(url)
-        self.log('Get {} Firmware Version'.format(module), response)
+        self.log('Get {} Firmware Version'.format(uri.split('/')[-1]), response)
         self._handle_status_code(response, [200])
 
         ver = ''
@@ -251,6 +252,10 @@ class BF_DPU_Update(object):
             raise Err_Exception(Err_Num.BAD_RESPONSE_FORMAT, 'Failed to extract firmware version')
 
         return ver
+
+
+    def get_ver(self, module):
+        return self.get_ver_by_uri(self._get_firmware_uri_by_resource(self.module_resource[module]))
 
 
     def _extract_task_handle(self, response):
@@ -337,7 +342,7 @@ class BF_DPU_Update(object):
                 raise Err_Exception(Err_Num.ANOTHER_UPDATE_IS_IN_PROGRESS, 'Please try to update the firmware later')
 
 
-    def update_bfb(self):
+    def simple_update(self):
         protocols_supported_by_bmc = self.get_simple_update_protocols()
         # Current script only support HTTP/SCP
         protocols = []
@@ -362,17 +367,26 @@ class BF_DPU_Update(object):
             if protocol is None:
                 raise Err_Exception(Err_Num.NOT_SUPPORT_SIMPLE_UPDATE_PROTOCOL, 'The current supported BFB update protocols are {}'.format(protocols))
 
-        return (protocol, self.update_bfb_by_protocol(protocol))
+        return (protocol, self.simple_update_by_protocol(protocol))
 
 
-    def update_bfb_by_protocol(self, protocol):
+    def simple_update_by_protocol(self, protocol):
         if protocol == 'HTTP':
-            return self.update_bfb_by_http()
+            return self.simple_update_by_http()
         elif protocol == 'SCP':
-            return self.update_bfb_by_scp()
+            return self.simple_update_by_scp()
 
 
-    def update_bfb_impl(self, protocol, image_uri):
+    def get_simple_update_targets(self):
+        if self.module == 'BIOS':
+            return ['redfish/v1/UpdateService/FirmwareInventory/DPU_OS']
+        elif self.module == 'CONFIG':
+            return ["redfish/v1/UpdateService/FirmwareInventory/golden_image_config"]
+        else:
+            raise Err_Exception(Err_Num.UNSUPPORTED_MODULE, "Only BIOS and CONFIG can be updated by SimpleUpdate")
+
+
+    def simple_update_impl(self, protocol, image_uri):
         url = self._get_url_base() + '/UpdateService/Actions/UpdateService.SimpleUpdate'
         headers = {
             'Content-Type'     : 'application/json'
@@ -380,19 +394,19 @@ class BF_DPU_Update(object):
         data = {
             'TransferProtocol' : protocol,
             'ImageURI'         : image_uri,
-            'Targets'          : ['redfish/v1/UpdateService/FirmwareInventory/DPU_OS'],
+            'Targets'          : self.get_simple_update_targets(),
             'Username'         : self._get_local_user()
         }
         response = self._http_post(url, data=json.dumps(data), headers=headers)
-        self.log('Update BFB Firmware', response)
+        self.log('Do Simple Update (Update BFB or Configurations ...)', response)
         self._handle_status_code(response, [100, 200, 202], self._update_in_progress_err_handler)
         return self._extract_task_handle(response)
 
 
-    def update_bfb_by_scp(self):
+    def simple_update_by_scp(self):
         self.confirm_ssh_key_with_bmc()
-        print("Start to upload BFB firmware (SCP)")
-        return self.update_bfb_impl('SCP', self._format_ip(self._get_local_ip()) + '/' + os.path.abspath(self.fw_file_path))
+        print("Start to do Simple Update (SCP)")
+        return self.simple_update_impl('SCP', self._format_ip(self._get_local_ip()) + '/' + os.path.abspath(self.fw_file_path))
 
 
     def http_server(self):
@@ -436,16 +450,17 @@ class BF_DPU_Update(object):
         port = None
         with open(self._http_server_port_file, 'r') as f:
             port = int(f.read())
-        os.remove(self._http_server_port_file)
+        if os.access(self._http_server_port_file, os.F_OK):
+            os.remove(self._http_server_port_file)
         self._local_http_server_port = port
         if not self._http_server_process.is_alive() or self._local_http_server_port is None:
             raise Err_Exception(Err_Num.FAILED_TO_START_HTTP_SERVER)
 
 
-    def update_bfb_by_http(self):
+    def simple_update_by_http(self):
         self.create_http_server_process()
-        print("Start to upload BFB firmware (HTTP)")
-        return self.update_bfb_impl('HTTP', self._format_ip(self._get_local_ip()) + ':' + str(self._local_http_server_port) + '//' + os.path.basename(self.fw_file_path))
+        print("Start to do Simple Update (HTTP)")
+        return self.simple_update_impl('HTTP', self._format_ip(self._get_local_ip()) + ':' + str(self._local_http_server_port) + '//' + os.path.basename(self.fw_file_path))
 
 
     def update_bmc_fw_multipart(self, url):
@@ -529,7 +544,7 @@ class BF_DPU_Update(object):
         response = self._http_post(url, data=json.dumps(data), headers=headers)
         self.log('Reboot BMC', response)
         self._handle_status_code(response, [200])
-        self._sleep_with_process(100)
+        self._wait_for_bmc_on()
 
 
     def reboot_cec(self):
@@ -547,7 +562,20 @@ class BF_DPU_Update(object):
         if response.status_code == 400:
             raise Err_Exception(Err_Num.NOT_SUPPORT_CEC_RESTART, 'Please use power cycle of the whole system instead')
 
-        self._sleep_with_process(120)
+        self._wait_for_bmc_on()
+
+
+    def _wait_for_bmc_on(self):
+        for i in range(1, 101):
+            time.sleep(4)
+            try:
+                self.get_ver('BMC')
+                self.get_ver('CEC')
+                self._print_process(100)
+                break
+            except Exception as e:
+                self._print_process(i)
+        print()
 
 
     def factory_reset_bmc(self):
@@ -562,7 +590,7 @@ class BF_DPU_Update(object):
         response = self._http_post(url, data=json.dumps(data), headers=headers)
         self.log('Factory Reset BMC', response)
         self._handle_status_code(response, [200])
-        self._sleep_with_process(100)
+        self._wait_for_bmc_on()
 
 
     def _print_process(self, percent):
@@ -634,6 +662,17 @@ class BF_DPU_Update(object):
         return True
 
 
+    def is_fw_file_for_conf(self):
+        if not self.is_fw_file_for_atf_uefi():
+            return False
+        command  = 'strings {} | grep -i toutiao'.format(self.fw_file_path)
+        process  = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = process.communicate()
+        if process.returncode != 0:
+            return False
+        return True
+
+
     # return True:  task completed successfully
     # return False: task cancelled for skip_same_version
     def _wait_task(self, task_handle, max_second=15*60, check_step=10, err_handler=None):
@@ -662,17 +701,50 @@ class BF_DPU_Update(object):
             raise Err_Exception(Err_Num.TASK_FAILED, task_state['message'])
         return True
 
+    def validate_args(self, items):
+        if 'UserName' in items:
+            if self.username is None:
+                raise Err_Exception(Err_Num.USERNAME_NOT_GIVEN)
+        if 'Password' in items:
+            if self.password is None:
+                raise Err_Exception(Err_Num.PASSWORD_NOT_GIVEN)
+        if 'BmcIP' in items:
+            if self.bmc_ip is None:
+                raise Err_Exception(Err_Num.BMC_IP_NOT_GIVEN)
+        if 'Module' in items:
+            if self.module is None:
+                raise Err_Exception(Err_Num.MODULE_NOT_GIVEN)
+        if 'FwFile' in items:
+            if self.fw_file_path is None:
+                raise Err_Exception(Err_Num.FW_FILE_NOT_GIVEN)
+            if not os.access(self.fw_file_path, os.R_OK):
+                raise Err_Exception(Err_Num.FILE_NOT_ACCESSIBLE, 'Firmware file: {}'.format(self.fw_file_path))
+        if 'FRU' in items:
+            if not self.oem_fru:
+                raise Err_Exception(Err_Num.FRU_NOT_GIVEN)
+
+        # Always validate log_file if provided
+        if self.log_file is not None:
+            accessible_file = os.access(self.log_file, os.W_OK)
+            accessible_dir = os.access(os.path.abspath(os.path.dirname(self.log_file)), os.W_OK)
+            if not accessible_file and not accessible_dir:
+                raise Err_Exception(Err_Num.FILE_NOT_ACCESSIBLE, 'Log file: {}'.format(self.log_file))
+
 
     def validate_arg_for_update(self):
-        if any(v is None for v in (self.username, self.password, self.fw_file_path, self.module, self.bmc_ip)):
-            raise Err_Exception(Err_Num.ARG_FOR_UPDATE_NOT_GIVEN)
+        self.validate_args(['UserName', 'Password', 'BmcIP', 'Module', 'FwFile'])
 
-        if not os.access(self.fw_file_path, os.R_OK):
-            raise Err_Exception(Err_Num.FILE_NOT_ACCESSIBLE, 'Firmware file: {}'.format(self.fw_file_path))
 
-        if self.log_file is not None and not os.access(self.log_file, os.W_OK) and not os.access(os.path.abspath(os.path.dirname(self.log_file)), os.W_OK):
-            raise Err_Exception(Err_Num.FILE_NOT_ACCESSIBLE, 'Log file: {}'.format(self.log_file))
-        return True
+    def validate_arg_for_fru(self):
+        self.validate_args(['UserName', 'Password', 'BmcIP', 'Module', 'FRU'])
+
+
+    def validate_arg_for_show_versions(self):
+        self.validate_args(['UserName', 'Password', 'BmcIP'])
+
+
+    def validate_arg_for_reset_config(self):
+        self.validate_args(['UserName', 'Password', 'BmcIP', 'Module'])
 
 
     def is_bmc_background_copy_in_progress(self):
@@ -927,15 +999,7 @@ class BF_DPU_Update(object):
         if not self.try_enable_rshim_on_bmc():
             raise Err_Exception(Err_Num.FAILED_TO_ENABLE_BMC_RSHIM, 'Please make sure rshim on Host side is disabled')
 
-        protocol, task_handle = self.update_bfb()
-
-        def err_handler(task_state):
-            if protocol == "SCP" and "Please provide server's public key using PublicKeyExchange" in task_state['message']:
-                raise Err_Exception(Err_Num.PUBLIC_KEY_NOT_EXCHANGED)
-            elif protocol == "HTTP" and "Check and restart server's web service" in task_state['message']:
-                raise Err_Exception(Err_Num.HTTP_FILE_SERVER_NOT_ACCESSIBLE, "Server address: {}:{}".format(self._format_ip(self._get_local_ip()), self._local_http_server_port))
-
-        self._wait_task(task_handle, max_second=20*60, check_step=2, err_handler=err_handler)
+        self._start_and_wait_simple_update_task()
         self._wait_for_bios_ready()
 
         # Verify new version is the same as the fw file version
@@ -947,8 +1011,23 @@ class BF_DPU_Update(object):
         print('New {} Firmware Version: \n\tATF--{}, UEFI--{}'.format('BIOS', new_atf_ver, new_uefi_ver))
         return True
 
+    def send_reset_bios(self):
+        print("Factory reset BIOS configuration (ResetBios) (will reboot the system)")
+        url = self._get_url_base() + '/Systems/Bluefield/Bios/Actions/Bios.ResetBios'
+        headers = {
+            'Content-Type' : 'application/json'
+        }
+        response = self._http_post(url, data=None, headers=headers)
+        self.log('Factory Reset BIOS (ResetBios)', response)
+        self._handle_status_code(response, [200])
+        # ResetBios command will send config image to DPU by rshim
+        # That will reset the DPU automatically. No need to reboot it again
+        # self.reboot_system()
+        self._wait_for_system_power_on(0, 100)
 
-    def send_factory_reset_bios(self):
+
+    def send_reset_efi_vars(self):
+        print("Factory reset EFI Var configuration (ResetEfiVars) (will reboot the system)")
         url = self._get_url_base() + '/Systems/Bluefield/Bios/Settings'
         headers = {
             'Content-Type' : 'application/json'
@@ -959,13 +1038,10 @@ class BF_DPU_Update(object):
             },
         }
         response = self._http_patch(url, data=json.dumps(data), headers=headers)
-        self.log('Factory Reset BIOS', response)
-
-        def err_handler(response):
-            if response.status_code == 400:
-                raise Err_Exception(Err_Num.BIOS_FACTORY_RESET_FAIL, 'Typically, it was caused for not supporting redfish factory reset in this version')
-
-        self._handle_status_code(response, [200], err_handler)
+        self.log('Factory reset EFI Var (ResetEfiVars)', response)
+        self._handle_status_code(response, [200])
+        self.reboot_system()
+        self._wait_for_system_power_on(0, 100)
 
 
     def reboot_system(self):
@@ -982,10 +1058,13 @@ class BF_DPU_Update(object):
 
 
     def get_system_power_state(self):
-        url = self._get_url_base() + '/Systems/Bluefield'
-        response = self._http_get(url)
-        self.log('Get System State', response)
-        self._handle_status_code(response, [200])
+        try:
+            url = self._get_url_base() + '/Systems/Bluefield'
+            response = self._http_get(url)
+            self.log('Get System State', response)
+            self._handle_status_code(response, [200])
+        except Exception as e:
+            return ''
 
         state = ''
         try:
@@ -1009,16 +1088,6 @@ class BF_DPU_Update(object):
                 self._print_process(i)
                 time.sleep(4)
             pre_state = new_state
-
-
-    def factory_reset_bios(self):
-        print("Factory reset BIOS configuration (will reboot the system)")
-        self.send_factory_reset_bios()
-        # Reboot twice is needed, according to the workflow
-        self.reboot_system()
-        self._wait_for_system_power_on(0, 50)
-        self.reboot_system()
-        self._wait_for_system_power_on(50, 100)
         print()
 
 
@@ -1026,10 +1095,7 @@ class BF_DPU_Update(object):
         """
         Update the OEM FRU data with the provided key-value pairs in the format 'Section:Key=Value'
         """
-
-        # Check if the user has set the parameter in self.oem_fru
-        if not self.oem_fru:
-            raise Err_Exception(Err_Num.INVALID_INPUT_PARAMETER, "No OEM FRU data provided. Please set the parameter for OEM FRU.")
+        self.validate_arg_for_fru()
         oem_fru_dict = {}
         if self.debug:
             print("OEM FRU data to be updated:", self.oem_fru)
@@ -1065,6 +1131,34 @@ class BF_DPU_Update(object):
         print("OEM FRU data updated successfully.")
 
 
+    def _start_and_wait_simple_update_task(self):
+        protocol, task_handle = self.simple_update()
+
+        def err_handler(task_state):
+            if protocol == "SCP" and "Please provide server's public key using PublicKeyExchange" in task_state['message']:
+                raise Err_Exception(Err_Num.PUBLIC_KEY_NOT_EXCHANGED)
+            elif protocol == "HTTP" and "Check and restart server's web service" in task_state['message']:
+                raise Err_Exception(Err_Num.HTTP_FILE_SERVER_NOT_ACCESSIBLE, "Server address: {}:{}".format(self._format_ip(self._get_local_ip()), self._local_http_server_port))
+
+        self._wait_task(task_handle, max_second=20*60, check_step=2, err_handler=err_handler)
+
+
+    def update_conf(self):
+        self.validate_arg_for_update()
+
+        if not self.is_fw_file_for_conf():
+            raise Err_Exception(Err_Num.FW_FILE_NOT_MATCH_MODULE)
+
+        # 1. Update config image in DPU BMC Flash using Redfish
+        self._start_and_wait_simple_update_task()
+
+        # 2. BMC Factory reset flow shall be triggered in order to clean old configuration (e.g., old users)
+        self.factory_reset_bmc()
+
+        # 3. In order to update the ARM UPVS partition and the corresponding UEFI capsule in eMMC, a factory reset should be triggered
+        self.send_reset_bios()
+
+
     def do_update(self):
         if self.module == 'BMC' or self.module == "CEC":
             self.update_bmc_or_cec((self.module == 'BMC'))
@@ -1072,17 +1166,57 @@ class BF_DPU_Update(object):
             self.update_bios()
         elif self.module == 'FRU':
             self.update_oem_fru()
+        elif self.module == 'CONFIG':
+            self.update_conf()
         else:
             raise Err_Exception(Err_Num.UNSUPPORTED_MODULE, "Unsupported module: {}".format(self.module))
 
 
+    def reset_config(self):
+        self.validate_arg_for_reset_config()
+        if self.module == 'BMC':
+            self.factory_reset_bmc()
+        elif self.module == 'BIOS':
+            self.send_reset_efi_vars()
+        elif self.module == 'CONFIG':
+            self.send_reset_bios()
+        else:
+            raise Err_Exception(Err_Num.UNSUPPORTED_MODULE, "Unsupported module to reset config: {}".format(self.module))
+
+
+    def _get_firmware_uri_list(self):
+        url = self._get_url_base() + '/UpdateService/FirmwareInventory'
+        response = self._http_get(url)
+        self.log('Get firmware URI list', response)
+        self._handle_status_code(response, [200])
+
+        uri_list = []
+        try:
+            members = response.json()['Members']
+            for member in members:
+                uri_list.append(member['@odata.id'])
+        except Exception as e:
+            raise Err_Exception(Err_Num.BAD_RESPONSE_FORMAT, 'Failed to extract firmware URI list')
+        return uri_list
+
+
+    def _get_firmware_uri_by_resource(self, resource):
+        return self.redfish_root + '/UpdateService/FirmwareInventory/' + resource
+
+
+    def _get_firmware_module_from_uri(self, uri):
+        for module, resource in self.module_resource.items():
+            if uri == self._get_firmware_uri_by_resource(resource):
+                return module
+        return uri.split('/')[-1]
+
+
     def show_all_versions(self):
-        if any(v is None for v in (self.username, self.password, self.bmc_ip)):
-            raise Err_Exception(Err_Num.ARG_FOR_VERSION_NOT_GIVEN)
-
+        self.validate_arg_for_show_versions()
+        uri_list = self._get_firmware_uri_list()
         vers = {}
-        for module, resouce in self.module_resource.items():
-            vers[module] = self.get_ver(module)
-
+        for uri in uri_list:
+            module = self._get_firmware_module_from_uri(uri)
+            vers[module] = self.get_ver_by_uri(uri)
         for module, ver in vers.items():
             print("%10s : %40s"%(module, ver))
