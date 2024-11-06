@@ -66,7 +66,7 @@ def main():
             dpu_update.show_all_versions()
             return 0
 
-        if args.fw_file_path is not None:
+        if args.fw_file_path is not None or args.oem_fru is not None:
             dpu_update.do_update()
 
         if args.clear_config:
