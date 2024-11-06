@@ -873,6 +873,7 @@ class BF_DPU_Update(object):
         while True:
             cur = int(time.time())
             if cur > end:
+                self._print_process(100)
                 break
             ver = self.get_ver('ATF')
             if ver != '':
@@ -1091,6 +1092,7 @@ class BF_DPU_Update(object):
         while True:
             cur = int(time.time())
             if cur > end:
+                self._print_process(100)
                 break
             new_state = self.get_system_power_state()
             # Since, after reboot command send, the state is changing as following:
@@ -1192,8 +1194,6 @@ class BF_DPU_Update(object):
         if self.module == 'BMC':
             self.factory_reset_bmc()
         elif self.module == 'BIOS':
-            self.send_reset_efi_vars()
-        elif self.module == 'CONFIG':
             self.send_reset_bios()
         else:
             raise Err_Exception(Err_Num.UNSUPPORTED_MODULE, "Unsupported module to reset config: {}".format(self.module))
