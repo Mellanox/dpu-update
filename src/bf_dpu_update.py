@@ -224,7 +224,10 @@ class BF_DPU_Update(object):
         try:
             msg = response.json()['error']['message']
         except:
-            msg = ''
+            try:
+                msg = response.json()['Attributes@Message.ExtendedInfo'][0]['Message']
+            except:
+                msg = ''
 
         # Raise exception for different cases
         if response.status_code == 401:
@@ -597,7 +600,7 @@ class BF_DPU_Update(object):
         print('\r', end='')
         flag = '|' if self.process_flag else '-'
         self.process_flag = not self.process_flag
-        print('Process%s: %3d%%:'%(flag, percent), '░' * (percent // 2), end='')
+        print('Process%s: %3d%%:'%(flag, percent), '░' * (int(percent) // 2), end='')
 
 
     def _sleep_with_process_with_percent(self, sec, start_percent=0, end_percent=100):
@@ -864,13 +867,19 @@ class BF_DPU_Update(object):
 
     def _wait_for_bios_ready(self):
         print('Wait for BIOS ready')
-        for i in range(1, 101):
+        timeout = 60 * 3 # Wait up to 3 minutes
+        start   = int(time.time())
+        end     = start + timeout
+        while True:
+            cur = int(time.time())
+            if cur > end:
+                break
             ver = self.get_ver('ATF')
             if ver != '':
                 self._print_process(100)
                 break
             else:
-                self._print_process(i)
+                self._print_process(100 * (cur - start) / timeout)
                 time.sleep(4)
         print()
 
@@ -1023,7 +1032,7 @@ class BF_DPU_Update(object):
         # ResetBios command will send config image to DPU by rshim
         # That will reset the DPU automatically. No need to reboot it again
         # self.reboot_system()
-        self._wait_for_system_power_on(0, 100)
+        self._wait_for_system_power_on()
 
 
     def send_reset_efi_vars(self):
@@ -1041,7 +1050,7 @@ class BF_DPU_Update(object):
         self.log('Factory reset EFI Var (ResetEfiVars)', response)
         self._handle_status_code(response, [200])
         self.reboot_system()
-        self._wait_for_system_power_on(0, 100)
+        self._wait_for_system_power_on()
 
 
     def reboot_system(self):
@@ -1074,18 +1083,24 @@ class BF_DPU_Update(object):
         return state
 
 
-    def _wait_for_system_power_on(self, start_progress, end_progress):
+    def _wait_for_system_power_on(self):
         pre_state = self.get_system_power_state()
-        for i in range(start_progress+1, end_progress+1):
+        timeout = 60 * 3 # Wait up to 3 minutes
+        start   = int(time.time())
+        end     = start + timeout
+        while True:
+            cur = int(time.time())
+            if cur > end:
+                break
             new_state = self.get_system_power_state()
             # Since, after reboot command send, the state is changing as following:
             # ...->On->Paused->PoweringOn->On
             # So, we need following two conditions to judge whether the system is On again
             if new_state != pre_state and new_state  == 'On':
-                self._print_process(end_progress)
+                self._print_process(100)
                 break
             else:
-                self._print_process(i)
+                self._print_process(100 * (cur - start) / timeout)
                 time.sleep(4)
             pre_state = new_state
         print()
