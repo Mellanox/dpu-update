@@ -569,7 +569,14 @@ class BF_DPU_Update(object):
 
 
     def _wait_for_bmc_on(self):
-        for i in range(1, 101):
+        timeout = 60 * 3 # Wait up to 3 minutes
+        start   = int(time.time())
+        end     = start + timeout
+        while True:
+            cur = int(time.time())
+            if cur > end:
+                self._print_process(100)
+                break
             time.sleep(4)
             try:
                 self.get_ver('BMC')
@@ -577,7 +584,7 @@ class BF_DPU_Update(object):
                 self._print_process(100)
                 break
             except Exception as e:
-                self._print_process(i)
+                self._print_process(100 * (cur - start) / timeout)
         print()
 
 
@@ -1169,11 +1176,11 @@ class BF_DPU_Update(object):
         # 1. Update config image in DPU BMC Flash using Redfish
         self._start_and_wait_simple_update_task()
 
-        # 2. BMC Factory reset flow shall be triggered in order to clean old configuration (e.g., old users)
-        self.factory_reset_bmc()
-
-        # 3. In order to update the ARM UPVS partition and the corresponding UEFI capsule in eMMC, a factory reset should be triggered
+        # 2. In order to update the ARM UPVS partition and the corresponding UEFI capsule in eMMC, a factory reset should be triggered
         self.send_reset_bios()
+
+        # 3. BMC Factory reset flow shall be triggered in order to clean old configuration (e.g., old users)
+        self.factory_reset_bmc()
 
 
     def do_update(self):

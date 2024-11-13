@@ -75,10 +75,10 @@ OobUpdate.sh is a program for updating various component firmware of BlueField D
     # ./OobUpdate.sh -U dingzhi -P Nvidia20240604-- -H 10.237.121.98  -T CONFIG -F /opt/BD-config-image-4.9.0.13354-1.0.0.bfb
     Start to Simple Update (HTTP)
     Process-: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
-    Factory reset BMC configuration
-    Process-: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
     Factory reset BIOS configuration(ResetBios) (will reboot the system)
     Process|: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+    Factory reset BMC configuration
+    Process-: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
 ### Update FRU data
 
