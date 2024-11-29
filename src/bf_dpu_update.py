@@ -36,7 +36,7 @@ class BF_DPU_Update(object):
     }
 
 
-    def __init__(self, bmc_ip, bmc_port, username, password, fw_file_path, module, oem_fru, skip_same_version, debug=False, log_file=None, use_curl=True, bfb_update_protocol = None):
+    def __init__(self, bmc_ip, bmc_port, username, password, fw_file_path, module, oem_fru, skip_same_version, debug=False, wipe_emmc=False, log_file=None, use_curl=True, bfb_update_protocol = None):
         self.bmc_ip            = self._parse_bmc_addr(bmc_ip)
         self.bmc_port          = bmc_port
         self.username          = username
@@ -46,6 +46,7 @@ class BF_DPU_Update(object):
         self.oem_fru           = oem_fru
         self.skip_same_version = skip_same_version
         self.debug             = debug
+        self.wipe_emmc         = wipe_emmc
         self.log_file          = log_file
         self.protocol          = 'https://'
         self.redfish_root      = '/redfish/v1'
@@ -1061,6 +1062,22 @@ class BF_DPU_Update(object):
         self._wait_for_system_power_on()
 
 
+    def send_emmc_wipe(self):
+        print("Wiping eMMC (EmmcWipe)")
+        url = self._get_url_base() + '/Systems/Bluefield/Bios/Settings'
+        headers = {
+            'Content-Type' : 'application/json'
+        }
+        data = {
+            'Attributes': {
+                'EmmcWipe': True,
+            },
+        }
+        response = self._http_patch(url, data=json.dumps(data), headers=headers)
+        self.log('Wiping eMMC (EmmcWipe)', response)
+        self._handle_status_code(response, [200])
+
+
     def reboot_system(self):
         url = self._get_url_base() + '/Systems/Bluefield/Actions/ComputerSystem.Reset'
         headers = {
@@ -1172,6 +1189,10 @@ class BF_DPU_Update(object):
 
         if not self.is_fw_file_for_conf():
             raise Err_Exception(Err_Num.FW_FILE_NOT_MATCH_MODULE)
+
+        # 0. Wipe the eMMC
+        if self.wipe_emmc:
+            self.send_emmc_wipe()
 
         # 1. Update config image in DPU BMC Flash using Redfish
         self._start_and_wait_simple_update_task()

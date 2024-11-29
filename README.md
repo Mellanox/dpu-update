@@ -23,6 +23,7 @@ OobUpdate.sh is a program for updating various component firmware of BlueField D
       -T <module>           The module to be updated: BMC|CEC|BIOS|FRU|CONFIG
       -H <bmc_ip>           IP/Host of BMC
       -C                    Reset to factory configuration (Only used for BMC|BIOS)
+      -E                    Wipe eMMC during the configuration image update (Only used for CONFIG)
       -o <output_log_file>, --output <output_log_file>
                             Output log file
       -p <bmc_port>, --port <bmc_port>
@@ -76,6 +77,17 @@ OobUpdate.sh is a program for updating various component firmware of BlueField D
     Start to Simple Update (HTTP)
     Process-: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
     Factory reset BIOS configuration (ResetBios) (will reboot the system)
+    Process|: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+    Restart BMC to make new firmware take effect
+    Process|: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+Wipe eMMC during image update:
+
+    # ./OobUpdate.sh -U dingzhi -P Nvidia20240604-- -H 10.237.121.98  -T CONFIG -E -F /opt/BD-config-image-4.9.0.13354-1.0.0.bfb
+    Wiping eMMC (EmmcWipe)
+    Start to Simple Update (HTTP)
+    Process-: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+    Factory reset BIOS configuration(ResetBios) (will reboot the system)
     Process|: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
     Restart BMC to make new firmware take effect
     Process|: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
