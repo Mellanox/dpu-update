@@ -27,6 +27,8 @@ OobUpdate.sh is a program for updating various component firmware of BlueField D
                             Output log file
       -p <bmc_port>, --port <bmc_port>
                             Port of BMC
+      --config <config_file>
+                            Configuration file
       -s <oem_fru>          FRU data in the format Section:Key=Value
       -v, --version         Show the version of this scripts
       --skip_same_version   Do not upgrade, if upgrade version is the same as
@@ -45,6 +47,24 @@ OobUpdate.sh is a program for updating various component firmware of BlueField D
             BF-24.03-4
     New BMC Firmware Version:
             BF-24.04-5
+
+### Combine BMC firmware with config file update together
+
+    # ./OobUpdate.sh -U dingzhi -P Nvidia20240604-- -H 10.237.121.98  -T BMC -F /opt/bf3-bmc-24.04-5_ipn.fwpkg --config /opt/BD-config-image-4.9.0.13354-1.0.0.bfb
+    Start to upload firmware
+    Process-: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+    Restart BMC to make new firmware take effect
+    Process-: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+    OLD BMC Firmware Version:
+            BF-24.03-4
+    New BMC Firmware Version:
+            BF-24.04-5
+    Start to Simple Update (HTTP)
+    Process-: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+    Factory reset BIOS configuration (ResetBios) (will reboot the system)
+    Process|: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+    Restart BMC to make new firmware take effect
+    Process|: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
 ### Update CEC firmware
 
