@@ -12,7 +12,7 @@ import bf_dpu_update
 
 
 # Version of this script tool
-Version = '24.10-4.2'
+Version = '24.10-5.0'
 
 
 def get_arg_parser():
@@ -26,6 +26,7 @@ def get_arg_parser():
     parser.add_argument('-o', '--output', metavar="<output_log_file>", dest="output_file",  type=str, required=False, help='Output log file')
     parser.add_argument('-p', '--port',   metavar="<bmc_port>",        dest="bmc_port",     type=str, required=False, help='Port of BMC (443 by default).')
     parser.add_argument('--bios_update_protocol', metavar='<bios_update_protocol>', dest="bios_update_protocol", required=False, help=argparse.SUPPRESS, choices=('HTTP', 'SCP'))
+    parser.add_argument('--config',       metavar='<config_file>',     dest="config_file",  type=str, required=False, help='Configuration file')
     parser.add_argument('-s',             action='append',             metavar="<oem_fru>", dest="oem_fru",           type=str, required=False, help='FRU data in the format "Section:Key=Value"')
     parser.add_argument('-v', '--version',     action='store_true',    dest="show_version",           required=False, help='Show the version of this scripts')
     parser.add_argument('--skip_same_version', action='store_true',    dest="skip_same_version",      required=False, help='Do not upgrade, if upgrade version is the same as current running version')
@@ -68,6 +69,21 @@ def main():
 
         if args.fw_file_path is not None or args.oem_fru is not None:
             dpu_update.do_update()
+
+        if args.config_file is not None:
+            dpu_config = bf_dpu_update.BF_DPU_Update(args.bmc_ip,
+                                                     args.bmc_port,
+                                                     args.username,
+                                                     args.password,
+                                                     args.config_file,
+                                                     'CONFIG',
+                                                     args.oem_fru,
+                                                     args.skip_same_version,
+                                                     args.debug,
+                                                     args.output_file,
+                                                     bfb_update_protocol = args.bios_update_protocol,
+                                                     use_curl = True)
+            dpu_config.do_update()
 
         if args.clear_config:
             dpu_update.reset_config()
