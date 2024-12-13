@@ -92,7 +92,7 @@ class BF_DPU_Update(object):
         return self.http_accessor(url, 'GET', self.username, self.password, headers, timeout).access()
 
 
-    def _http_post(self, url, data, headers=None, timeout=(60, 60)):
+    def _http_post(self, url, data, headers=None, timeout=(120, 120)):
         return self.http_accessor(url, 'POST', self.username, self.password, headers, timeout).access(data)
 
 
@@ -331,6 +331,54 @@ class BF_DPU_Update(object):
         except:
             multi_part_uri = None
         return (multi_part_uri, deprecated_uri)
+
+
+    def get_update_service_state(self):
+        url = self._get_url_base() + '/UpdateService'
+        response = self._http_get(url)
+        self.log('Get UpdateService state', response)
+        self._handle_status_code(response, [200])
+
+        state = ''
+        '''
+        {
+          ...
+          "Status": {
+            "Conditions": [],
+            "State": "Enabled"
+          }
+        }
+        '''
+        try:
+            state = response.json()['Status']['State']
+        except Exception as e:
+            raise Err_Exception(Err_Num.BAD_RESPONSE_FORMAT, 'Failed to extract update service state')
+        return state
+
+
+    def wait_update_service_ready(self):
+        if 'Enabled' == self.get_update_service_state():
+            return
+
+        print("Wait for update service ready")
+        timeout = 60 * 3 # Wait up to 3 minutes
+        start   = int(time.time())
+        end     = start + timeout
+        while True:
+            cur = int(time.time())
+            if cur > end:
+                raise Err_Exception(Err_Num.UPDATE_SERVICE_NOT_READY)
+            try:
+                state = self.get_update_service_state()
+                if state == 'Enabled':
+                    self._print_process(100)
+                    break
+                else:
+                    self._print_process(100 * (cur - start) / timeout)
+            except Exception as e:
+                self._print_process(100 * (cur - start) / timeout)
+            time.sleep(4)
+        print()
 
 
     @staticmethod
@@ -791,6 +839,7 @@ class BF_DPU_Update(object):
 
     def update_bmc_or_cec(self, is_bmc):
         self.validate_arg_for_update()
+        self.wait_update_service_ready()
 
         # Check firmare file is for BMC/CEC
         correct_file = self.is_fw_file_for_bmc() if is_bmc else self.is_fw_file_for_cec()
@@ -993,6 +1042,7 @@ class BF_DPU_Update(object):
 
     def update_bios(self):
         self.validate_arg_for_update()
+        self.wait_update_service_ready()
 
         if not self.is_fw_file_for_atf_uefi():
             raise Err_Exception(Err_Num.FW_FILE_NOT_MATCH_MODULE)
@@ -1169,6 +1219,7 @@ class BF_DPU_Update(object):
 
     def update_conf(self):
         self.validate_arg_for_update()
+        self.wait_update_service_ready()
 
         if not self.is_fw_file_for_conf():
             raise Err_Exception(Err_Num.FW_FILE_NOT_MATCH_MODULE)

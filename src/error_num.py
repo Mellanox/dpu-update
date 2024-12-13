@@ -46,6 +46,7 @@ class Err_Num(Enum):
     MODULE_NOT_GIVEN                      = 35
     FW_FILE_NOT_GIVEN                     = 36
     FRU_NOT_GIVEN                         = 37
+    UPDATE_SERVICE_NOT_READY              = 38
     OTHER_EXCEPTION                       = 127
 
 
@@ -87,6 +88,7 @@ Err_Str = {
    Err_Num.MODULE_NOT_GIVEN               : 'Module to update is not given',
    Err_Num.FW_FILE_NOT_GIVEN              : 'Firmware file is not given',
    Err_Num.FRU_NOT_GIVEN                  : 'FRU is not given',
+   Err_Num.UPDATE_SERVICE_NOT_READY       : 'Update service is not ready(enabled)',
    Err_Num.OTHER_EXCEPTION                : 'Other Errors',
 }
 
