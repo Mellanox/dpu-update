@@ -12,7 +12,7 @@ import bf_dpu_update
 
 
 # Version of this script tool
-Version = '24.10-5.1'
+Version = '24.10-5.2'
 
 
 def get_arg_parser():
@@ -48,6 +48,10 @@ def main():
         print("Please use -h/--help to get help informations, "
               "the following arguments are required for Update: -U, -P, -H.")
         return 0
+    if args.module:
+        if not (args.fw_file_path or args.clear_config or args.oem_fru):
+            print("Argument -F, -C or -s is required while -T is provided")
+            return 0
 
     try:
         dpu_update = bf_dpu_update.BF_DPU_Update(args.bmc_ip,
