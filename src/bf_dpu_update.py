@@ -1224,6 +1224,9 @@ class BF_DPU_Update(object):
         if not self.is_fw_file_for_conf():
             raise Err_Exception(Err_Num.FW_FILE_NOT_MATCH_MODULE)
 
+        if not self.try_enable_rshim_on_bmc():
+            raise Err_Exception(Err_Num.FAILED_TO_ENABLE_BMC_RSHIM, 'Please make sure rshim on Host side is disabled')
+
         # 1. Update config image in DPU BMC Flash using Redfish
         self._start_and_wait_simple_update_task()
 
