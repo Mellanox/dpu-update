@@ -195,4 +195,4 @@ To ensure the FRU writing takes effect, follow these steps and in the order list
 2. The BMC firmware version should be >= 24.04
 
 ## Precondition (Host in which DPU plugged)
-1. Rshim on Host need to be disabled, if want to update the BIOS of DPU
+1. Rshim on Host need to be disabled, if want to update the BIOS|CONFIG of DPU
