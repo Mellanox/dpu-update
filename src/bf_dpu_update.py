@@ -257,8 +257,20 @@ class BF_DPU_Update(object):
         return ver
 
 
-    def get_ver(self, module):
+    def _get_ver(self, module):
         return self.get_ver_by_uri(self._get_firmware_uri_by_resource(self.module_resource[module]))
+
+
+    def get_ver(self, module, num_of_tries=3):
+        for i in range(num_of_tries):
+            try:
+                ver = self._get_ver(module)
+                return ver
+            except Exception as e:
+                if self.debug:
+                    print("Exception when get version: {}".format(e))
+            time.sleep(4)
+        return ''
 
 
     def _extract_task_handle(self, response):
@@ -627,8 +639,8 @@ class BF_DPU_Update(object):
                 break
             time.sleep(4)
             try:
-                self.get_ver('BMC')
-                self.get_ver('CEC')
+                self._get_ver('BMC')
+                self._get_ver('CEC')
                 self._print_process(100)
                 break
             except Exception as e:
