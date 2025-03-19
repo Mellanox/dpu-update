@@ -20,7 +20,7 @@ OobUpdate.sh is a program for updating various component firmware of BlueField D
       -U <username>         Username of BMC
       -P <password>         Password of BMC
       -F <firmware_file>    Firmware file path (absolute/relative)
-      -T <module>           The module to be updated: BMC|CEC|BIOS|FRU|CONFIG
+      -T <module>           The module to be updated: BMC|CEC|BIOS|FRU|CONFIG|BUNDLE
       -H <bmc_ip>           IP/Host of BMC
       -C                    Reset to factory configuration (Only used for BMC|BIOS)
       -o <output_log_file>, --output <output_log_file>
@@ -89,6 +89,22 @@ OobUpdate.sh is a program for updating various component firmware of BlueField D
             ATF--v2.2(release):4.8.0-14-gc58efcd, UEFI--4.8.0-11-gbd389cc
     New BIOS Firmware Version:
             ATF--v2.2(release):4.7.0-25-g5569834, UEFI--4.7.0-42-g13081ae
+
+### Update BlueField firmware bundle - including only firmware components ATF, UEFI, BMC, CEC and NIC Firmware
+
+    # ./OobUpdate.sh -U root -P Nvidia20240604-- -H 10.237.121.98  -T BUNDLE -F /opt/bf-fwbundle-2.10.0-147_25.01-prod.bfb
+    Start to do Simple Update (HTTP)
+    Process-: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+    Wait for DPU(ARM) boot completion
+    Process|: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+    Restart BMC to make new firmware take effect
+    Process|: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+                                              OLD Version                               NEW Version
+           BMC :                              BF-24.10-24                                BF-25.01-4
+           CEC :                      00.02.0195.0000_n02                       00.02.0195.0000_n02
+           ATF :        v2.2(release):4.9.2-14-geeb9a6f94        v2.2(release):4.10.0-41-gea03e14b3
+           NIC :                               32.43.2566                                32.44.1036
+          UEFI :                     4.9.2-25-ge0f86cebd6                     4.10.0-81-gb011ce66f6
 
 ### Update Config Image
 
@@ -195,4 +211,4 @@ To ensure the FRU writing takes effect, follow these steps and in the order list
 2. The BMC firmware version should be >= 24.04
 
 ## Precondition (Host in which DPU plugged)
-1. Rshim on Host need to be disabled, if want to update the BIOS|CONFIG of DPU
+1. Rshim on Host need to be disabled, if want to update the BIOS|CONFIG|BUNDLE of DPU

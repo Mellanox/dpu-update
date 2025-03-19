@@ -441,7 +441,7 @@ class BF_DPU_Update(object):
 
 
     def get_simple_update_targets(self):
-        if self.module == 'BIOS':
+        if self.module == 'BIOS' or self.module == 'BUNDLE':
             return ['redfish/v1/UpdateService/FirmwareInventory/DPU_OS']
         elif self.module == 'CONFIG':
             return ["redfish/v1/UpdateService/FirmwareInventory/golden_image_config"]
@@ -1090,6 +1090,62 @@ class BF_DPU_Update(object):
         print('New {} Firmware Version: \n\tATF--{}, UEFI--{}'.format('BIOS', new_atf_ver, new_uefi_ver))
         return True
 
+
+    def get_dpu_boot_state(self):
+        try:
+            url = self._get_url_base() + '/Systems/Bluefield'
+            response = self._http_get(url)
+            self.log('Get DPU(ARM) boot state', response)
+            self._handle_status_code(response, [200])
+        except Exception as e:
+            return ''
+
+        state = ''
+        try:
+            state = response.json()['BootProgress']['OemLastState']
+        except Exception as e:
+            raise Err_Exception(Err_Num.BAD_RESPONSE_FORMAT, 'Failed to extract DPU(ARM) boot state')
+        return state
+
+
+    def _wait_for_dpu_ready(self):
+        print('Wait for DPU(ARM) boot completion')
+        timeout = 60 * 60 # Wait up to 60 minutes
+        start   = int(time.time())
+        end     = start + timeout
+        while True:
+            cur = int(time.time())
+            if cur > end:
+                self._print_process(100)
+                break
+            state = self.get_dpu_boot_state()
+            if state == 'OsIsRunning':
+                self._print_process(100)
+                break
+            else:
+                self._print_process(100 * (cur - start) / timeout)
+                time.sleep(30)
+        print()
+
+
+    def update_bundle(self):
+        self.validate_arg_for_update()
+        self.wait_update_service_ready()
+        cur_vers = self.get_all_versions()
+
+        if not self.try_enable_rshim_on_bmc():
+            raise Err_Exception(Err_Num.FAILED_TO_ENABLE_BMC_RSHIM, 'Please make sure rshim on Host side is disabled')
+
+        self._start_and_wait_simple_update_task()
+        self._wait_for_dpu_ready()
+        self.reboot_bmc()
+
+        time.sleep(60) # Wait for some time before getting all fw versions
+        new_vers = self.get_all_versions()
+        self.show_old_new_versions(cur_vers, new_vers, ['BMC', 'CEC', 'ATF', 'UEFI', 'NIC'])
+        return True
+
+
     def send_reset_bios(self):
         print("Factory reset BIOS configuration (ResetBios) (will reboot the system)")
         url = self._get_url_base() + '/Systems/Bluefield/Bios/Actions/Bios.ResetBios'
@@ -1258,6 +1314,8 @@ class BF_DPU_Update(object):
             self.update_oem_fru()
         elif self.module == 'CONFIG':
             self.update_conf()
+        elif self.module == 'BUNDLE':
+            self.update_bundle()
         else:
             raise Err_Exception(Err_Num.UNSUPPORTED_MODULE, "Unsupported module: {}".format(self.module))
 
@@ -1299,12 +1357,28 @@ class BF_DPU_Update(object):
         return uri.split('/')[-1]
 
 
-    def show_all_versions(self):
+    def get_all_versions(self):
         self.validate_arg_for_show_versions()
         uri_list = self._get_firmware_uri_list()
         vers = {}
         for uri in uri_list:
             module = self._get_firmware_module_from_uri(uri)
             vers[module] = self.get_ver_by_uri(uri)
+        return vers
+
+
+    def show_versions(self, vers):
         for module, ver in vers.items():
             print("%10s : %40s"%(module, ver))
+
+
+    def show_old_new_versions(self, old_vers, new_vers, filter = []):
+        print("%10s   %40s  %40s"%('', 'OLD Version', 'NEW Version'))
+        for module, ver in old_vers.items():
+            if module in filter:
+                print("%10s : %40s  %40s"%(module, ver, new_vers.get(module, '')))
+
+
+    def show_all_versions(self):
+        vers = self.get_all_versions()
+        self.show_versions(vers)
