@@ -47,6 +47,7 @@ class Err_Num(Enum):
     FW_FILE_NOT_GIVEN                     = 36
     FRU_NOT_GIVEN                         = 37
     UPDATE_SERVICE_NOT_READY              = 38
+    NO_PENDING_CEC_FW                     = 39
     OTHER_EXCEPTION                       = 127
 
 
@@ -67,7 +68,7 @@ Err_Str = {
    Err_Num.INVALID_STATUS_CODE            : 'Invalid response status code',
    Err_Num.FAILED_TO_GET_LOCAL_KEY        : 'Failed to get local SSH Key',
    Err_Num.FAILED_TO_ENABLE_BMC_RSHIM     : 'Failed to enable BMC rshim',
-   Err_Num.NOT_SUPPORT_CEC_RESTART        : 'CEC restart redfish API is not supported in this version',
+   Err_Num.NOT_SUPPORT_CEC_RESTART        : 'CEC reboot redfish API is not supported in this version',
    Err_Num.BMC_BACKGROUND_BUSY            : 'BMC is busy on background operation',
    Err_Num.PUBLIC_KEY_NOT_EXCHANGED       : 'Public key was not exchanged with BMC successfully',
    Err_Num.TASK_FAILED                    : 'Task failed',
@@ -89,6 +90,7 @@ Err_Str = {
    Err_Num.FW_FILE_NOT_GIVEN              : 'Firmware file is not given',
    Err_Num.FRU_NOT_GIVEN                  : 'FRU is not given',
    Err_Num.UPDATE_SERVICE_NOT_READY       : 'Update service is not ready(enabled)',
+   Err_Num.NO_PENDING_CEC_FW              : 'CEC firmware was not updated',
    Err_Num.OTHER_EXCEPTION                : 'Other Errors',
 }
 

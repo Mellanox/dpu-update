@@ -611,7 +611,6 @@ class BF_DPU_Update(object):
 
 
     def reboot_cec(self):
-        print("Restart CEC to make new firmware take effect")
         url = self._get_url_base() + '/Chassis/Bluefield_ERoT/Actions/Chassis.Reset'
         headers = {
             'Content-Type' : 'application/json'
@@ -621,11 +620,31 @@ class BF_DPU_Update(object):
         }
         response = self._http_post(url, data=json.dumps(data), headers=headers)
         self.log('Reboot CEC', response)
-        self._handle_status_code(response, [200, 400])
-        if response.status_code == 400:
-            raise Err_Exception(Err_Num.NOT_SUPPORT_CEC_RESTART, 'Please use power cycle of the whole system instead')
 
+        def err_handler(response):
+            try:
+                code = response.json()['error']['code']
+            except:
+                code = ''
+            if 'ActionNotSupported' in code:
+                raise Err_Exception(Err_Num.NOT_SUPPORT_CEC_RESTART, 'Please use power cycle of the whole system instead')
+            elif 'ResourceNotFound' in code:
+                raise Err_Exception(Err_Num.NO_PENDING_CEC_FW, 'Skip CEC reboot')
+        self._handle_status_code(response, [200], err_handler)
+
+        # Print the message, only after CEC restart really happened without exception.
+        print("Restart CEC to make new firmware take effect")
         self._wait_for_bmc_on()
+
+
+    def try_reboot_cec(self):
+        try:
+            self.reboot_cec()
+        except Exception as e:
+            if e.err_num == Err_Num.NOT_SUPPORT_CEC_RESTART or e.err_num == Err_Num.NO_PENDING_CEC_FW:
+                print(str(e))
+            else:
+                raise e
 
 
     def _wait_for_bmc_on(self):
@@ -874,7 +893,7 @@ class BF_DPU_Update(object):
             return
 
         # Reboot bmc/cec
-        self.reboot_bmc() if is_bmc else self.reboot_cec()
+        self.reboot_bmc() if is_bmc else self.try_reboot_cec()
 
         new_ver = self.get_ver('BMC') if is_bmc else self.get_ver('CEC')
         print('OLD {} Firmware Version: \n\t{}'.format(('BMC' if is_bmc else 'CEC'), old_ver))
@@ -1138,7 +1157,7 @@ class BF_DPU_Update(object):
 
         self._start_and_wait_simple_update_task()
         self._wait_for_dpu_ready()
-        self.reboot_cec()
+        self.try_reboot_cec()
         self.reboot_bmc()
 
         time.sleep(60) # Wait for some time before getting all fw versions
