@@ -9,6 +9,7 @@ import sys
 import os
 import json
 import socket
+import select
 import getpass
 import subprocess
 import stat
@@ -51,7 +52,7 @@ class BF_DPU_Update(object):
         self.redfish_root      = '/redfish/v1'
         self.process_flag      = True
         self._http_server_process = None
-        self._http_server_port_file = "/tmp/dpu_update_http_server_port_{}.txt".format(os.getpid())
+        self._http_server_port_pipe = os.pipe()
         self._local_http_server_port = None
         self.use_curl          = use_curl
         self.http_accessor     = self._get_http_accessor()
@@ -490,9 +491,9 @@ class BF_DPU_Update(object):
             _HTTPServer = HTTPServerV6
 
         httpd = _HTTPServer((self._get_local_ip(), 0), _SimpleHTTPRequestHandler)
-        self._local_http_server_port = httpd.server_address[1]
-        with open(self._http_server_port_file, 'w') as f:
-            f.write(str(self._local_http_server_port))
+        port = httpd.server_address[1]
+        write_fd = self._http_server_port_pipe[1]
+        os.write(write_fd, bytes(str(port), 'utf-8'))
         httpd.serve_forever()
 
 
@@ -500,28 +501,29 @@ class BF_DPU_Update(object):
         import threading
         thread = threading.Thread(target=self.http_server, daemon=True)
         thread.start()
-        time.sleep(2) # Wait thread start and set the port.
-        if self._local_http_server_port is None:
-            raise Err_Exception(Err_Num.FAILED_TO_START_HTTP_SERVER)
 
 
     def create_http_server_process(self):
         self._http_server_process = Process(target=self.http_server)
         self._http_server_process.daemon = True
         self._http_server_process.start()
-        time.sleep(2) # Wait process start and set the port.
-        port = None
-        with open(self._http_server_port_file, 'r') as f:
-            port = int(f.read())
-        if os.access(self._http_server_port_file, os.F_OK):
-            os.remove(self._http_server_port_file)
-        self._local_http_server_port = port
-        if not self._http_server_process.is_alive() or self._local_http_server_port is None:
+
+
+    def read_http_server_port(self):
+        read_fd = self._http_server_port_pipe[0]
+        timeout = 60 # Seconds
+        ready_to_read, _, _ = select.select([read_fd], [], [], timeout)
+        if read_fd in ready_to_read:
+            data = os.read(read_fd, 1024)
+            port = int(data)
+            return port
+        else:
             raise Err_Exception(Err_Num.FAILED_TO_START_HTTP_SERVER)
 
 
     def simple_update_by_http(self):
         self.create_http_server_process()
+        self._local_http_server_port = self.read_http_server_port()
         print("Start to do Simple Update (HTTP)")
         return self.simple_update_impl('HTTP', self._format_ip(self._get_local_ip()) + ':' + str(self._local_http_server_port) + '//' + os.path.basename(self.fw_file_path))
 
