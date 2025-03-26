@@ -718,7 +718,7 @@ class BF_DPU_Update(object):
 
 
     def extract_atf_uefi_ver_from_fw_file(self):
-        command = 'strings {} | grep -m 1 "(\(release\|debug\))"'.format(self.fw_file_path)
+        command = r'strings {} | grep -m 1 "(\(release\|debug\))"'.format(self.fw_file_path)
         process   = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = process.communicate()
         if process.returncode != 0:
