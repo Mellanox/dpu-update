@@ -204,8 +204,9 @@ To ensure the FRU writing takes effect, follow these steps and in the order list
 3) Reboot the BMC: This will update the FRU information on the BMC accordingly.
 
 ## Precondition (Controller Host)
-1. Avaiable connection to DPU BMC
+1. Available connection to DPU BMC
 2. Python3 is needed, with requests module installed
+3. curl, strings, grep, ssh-keyscan need to be installed.
 
 
 ## Precondition (Target DPU BMC)
