@@ -649,24 +649,28 @@ class BF_DPU_Update(object):
                 raise e
 
 
-    def _wait_for_bmc_on(self):
+    def _wait_for_bmc_on(self, show_progress=True):
         timeout = 60 * 3 # Wait up to 3 minutes
         start   = int(time.time())
         end     = start + timeout
         while True:
             cur = int(time.time())
             if cur > end:
-                self._print_process(100)
+                if show_progress:
+                    self._print_process(100)
                 break
             time.sleep(4)
             try:
                 self._get_ver('BMC')
                 self._get_ver('CEC')
-                self._print_process(100)
+                if show_progress:
+                    self._print_process(100)
                 break
             except Exception as e:
-                self._print_process(100 * (cur - start) / timeout)
-        print()
+                if show_progress:
+                    self._print_process(100 * (cur - start) / timeout)
+        if show_progress:
+            print()
 
 
     def factory_reset_bmc(self):
@@ -1125,12 +1129,24 @@ class BF_DPU_Update(object):
         try:
             state = response.json()['BootProgress']['OemLastState']
         except Exception as e:
-            raise Err_Exception(Err_Num.BAD_RESPONSE_FORMAT, 'Failed to extract DPU(ARM) boot state')
+            # Retry once if failed in case BMC reboot is in progress
+            if self.debug:
+                print("BMC is rebooting. Retry once...")
+            self._wait_for_bmc_on(False)
+            if self.debug:
+                print("BMC is UP")
+            try:
+                response = self._http_get(url)
+                self.log('Get DPU(ARM) boot state', response)
+                self._handle_status_code(response, [200])
+                state = response.json()['BootProgress']['OemLastState']
+            except Exception as e:
+                raise Err_Exception(Err_Num.BAD_RESPONSE_FORMAT, 'Failed to extract DPU(ARM) boot state')
         return state
 
 
     def _wait_for_dpu_ready(self):
-        print('Wait for DPU(ARM) boot completion')
+        print('Waiting for the BFB installation to finish')
         timeout = 60 * 60 # Wait up to 60 minutes
         start   = int(time.time())
         end     = start + timeout
