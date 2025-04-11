@@ -1409,7 +1409,6 @@ class BF_DPU_Update(object):
         for module, ver in vers.items():
             print("%10s : %40s"%(module, ver))
 
-
     def show_old_new_versions(self, old_vers, new_vers, filter = []):
         print("%10s   %40s  %40s"%('', 'OLD Version', 'NEW Version'))
         for module, ver in old_vers.items():

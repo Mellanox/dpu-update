@@ -9,7 +9,8 @@ import random
 import string
 import shutil
 import time
-
+import re
+import json
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + '/src')
 import bf_dpu_update
 
@@ -37,7 +38,7 @@ def get_arg_parser():
     parser.add_argument('--skip_same_version', action='store_true',    dest="skip_same_version",      required=False, help='Do not upgrade, if upgrade version is the same as current running version')
     parser.add_argument('--show_all_versions', action='store_true',    dest="show_all_versions",      required=False, help=argparse.SUPPRESS)
     parser.add_argument('-d', '--debug',       action='store_true',    dest="debug",                  required=False, help='Show more debug info')
-    parser.add_argument('-L', metavar="<path>", dest="config_path", type=str, required=False, help='Linux path to save the cfg file')
+    parser.add_argument('-L', metavar="<path>", dest="config_path", type=str, required=False, help='Linux path to save the cfg file', default='/tmp')
     parser.add_argument('--task-id',    metavar="<task_id>",    dest="task_id",     type=str, required=False, help='Unique identifier for the task')
     return parser
 
@@ -46,8 +47,6 @@ def create_random_suffix():
     return ''.join(random.choice(letters) for i in range(5))
 
 def create_cfg_file(username, password, ssh_username, ssh_password, config_path, task_id):
-    if not config_path:
-        config_path = '/tmp'
     # Create a separate temporary directory for each task
     task_dir = os.path.join(config_path, f"task_{task_id}")
     if not os.path.exists(task_dir):
@@ -87,6 +86,63 @@ def merge_files(cfg_file_path, fw_file_path, task_id):
         print(f"Error merging files: {e}")
         return fw_file_path
 
+def extract_info_json(file_path, start_pattern, end_pattern):
+    # Open the binary file
+    with open(file_path, 'rb') as f:
+        binary_data = f.read()
+
+    # Decode the binary data into a string (ignoring decoding errors)
+    try:
+        text_data = binary_data.decode('utf-8')
+    except UnicodeDecodeError:
+        text_data = binary_data.decode('utf-8', errors='ignore')
+
+    # Find starting '{' before the start pattern
+    start_idx = text_data.find(start_pattern)
+    if start_idx == -1:
+        return "Start pattern not found."
+
+    # Find the first '{' before the start pattern
+    open_brace_idx = text_data.rfind('{', 0, start_idx)
+    if open_brace_idx == -1:
+        return "No opening brace '{' found before start pattern."
+
+    # Find end pattern and closing '}' after it
+    end_idx = text_data.find(end_pattern, open_brace_idx)
+    if end_idx == -1:
+        return "End pattern not found."
+
+    # Find the first '}' after the end pattern
+    close_brace_idx = text_data.find('}', end_idx)
+    if close_brace_idx == -1:
+        return "No closing brace '}' found after end pattern."
+
+    # Extract the JSON segment
+    json_segment = text_data[open_brace_idx:close_brace_idx+1]
+
+    return json_segment
+
+def extract_info(new_fw_file_path, config_path, task_id):
+    start_pattern = "This JSON represents"
+    end_pattern = "Members@odata.count"
+    info_json = extract_info_json(new_fw_file_path, start_pattern, end_pattern)
+    info_dir = os.path.join(config_path, f"task_{task_id}")
+    info_file_name = f"{task_id}_info.json"
+    info_file_path = os.path.join(info_dir, info_file_name)
+    try:
+        with open(info_file_path, 'w') as info_file:
+            info_file.write(info_json)
+    except Exception as e:
+        print(f"Error creating info file: {e}")
+        return None
+    return info_file_path
+
+def info_has_softwareid(info_data, softwareid):
+    for item in info_data['Members']:
+        if item['SoftwareId'] == softwareid:
+            return True
+    return False
+
 def main():
     parser = get_arg_parser()
     args   = parser.parse_args()
@@ -123,6 +179,14 @@ def main():
         cfg_file_path = create_cfg_file(args.username, args.password, args.ssh_username, args.ssh_password, args.config_path, args.task_id)
         # Merge files
         new_fw_file_path = merge_files(cfg_file_path, args.fw_file_path, args.task_id)
+
+        if args.module == 'BUNDLE':
+            info_file_path = extract_info(new_fw_file_path, args.config_path, args.task_id)
+            if info_file_path:
+                print(f"Info file created at {info_file_path}")
+                info_data = json.load(open(info_file_path))
+                if info_has_softwareid(info_data, 'config-image.bfb'):
+                    reset_bios = True
     else:
         new_fw_file_path = args.fw_file_path
 
@@ -146,7 +210,10 @@ def main():
 
         if args.fw_file_path is not None or args.oem_fru is not None:
             dpu_update.do_update()
-            print("Upgrade success!")
+
+            if reset_bios:
+                dpu_update.send_reset_bios()
+            print("Upgrade finished!")
 
         if args.config_file is not None:
             dpu_config = bf_dpu_update.BF_DPU_Update(args.bmc_ip,
