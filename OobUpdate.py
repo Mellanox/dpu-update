@@ -203,6 +203,8 @@ def main():
                                                  args.output_file,
                                                  bfb_update_protocol = args.bios_update_protocol,
                                                  use_curl = True)
+        if info_data:
+            dpu_update.set_info_data(info_data)
 
         if args.show_all_versions:
             dpu_update.show_all_versions()

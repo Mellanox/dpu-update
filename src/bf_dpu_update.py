@@ -57,6 +57,7 @@ class BF_DPU_Update(object):
         self.use_curl          = use_curl
         self.http_accessor     = self._get_http_accessor()
         self.bfb_update_protocol = bfb_update_protocol
+        self.info_data         = None
 
 
     def _get_prot_ip_port(self):
@@ -1409,13 +1410,35 @@ class BF_DPU_Update(object):
         for module, ver in vers.items():
             print("%10s : %40s"%(module, ver))
 
+    def get_info_data_version(self, module):
+        if not self.info_data:
+            return ''
+
+        # Map module names to info_data keys
+        info_module = {
+            'ATF': 'BF3_ATF',
+            'UEFI': 'BF3_UEFI',
+            'BMC': 'BF3_BMC_FW',
+            'CEC': 'BF3_CEC_FW',
+            'NIC': 'BF3_NIC_FW'
+        }
+
+        for member in self.info_data["Members"]:
+            if member["Name"] == info_module[module]:
+                return member["Version"]
+        return ''
+
     def show_old_new_versions(self, old_vers, new_vers, filter = []):
-        print("%10s   %40s  %40s"%('', 'OLD Version', 'NEW Version'))
+        print("%10s   %40s  %40s  %40s"%('', 'OLD Version', 'NEW Version', 'BFB Version'))
         for module, ver in old_vers.items():
-            if module in filter:
-                print("%10s : %40s  %40s"%(module, ver, new_vers.get(module, '')))
+            if len(filter) == 0 or module in filter:
+                info_ver = self.get_info_data_version(module)
+                print("%10s : %40s  %40s  %40s"%(module, ver, new_vers.get(module, ''), info_ver))
 
 
     def show_all_versions(self):
         vers = self.get_all_versions()
         self.show_versions(vers)
+
+    def set_info_data(self, info_data):
+        self.info_data = info_data
