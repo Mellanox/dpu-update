@@ -6,34 +6,40 @@ This repository is created only for reference code and example.
 
 ## Description
 
-OobUpdate.sh is a program for updating various component firmware of BlueField DPU, like BMC, CEC and BIOS. It works from out of band, uses RedFish API exposed by BMC of DPU. The script can work from any controller host (Linux), which has available connection to the DPU BMC system.
+OobUpdate.sh is a script for updating various firmware components of the BlueField DPU, such as BMC, CEC, ATF/UEFI, or the complete firmware bundle (bf-fwbundle). It operates out-of-band by using the RedFish API exposed by the DPU’s BMC. The script can be run from any Linux controller host that has network connectivity to the DPU BMC system.
+
+Note: bf-fwbundle is supported starting from version 2.9.2.
 
 ## Usage
 
-    OobUpdate.sh [-h] [-U <username>] [-P <password>] [-F <firmware_file>]
-                 [-T <module>] [-H <bmc_ip>] [-C <clear_config>]
-                 [-o <output_log_file>] [-p <bmc_port>] [-s <oem_fru>] [-v]
-                 [--skip_same_version] [-d]
+    usage: OobUpdate.py [-h] -U <username> -P <password> -S <ssh_username>
+                        -K <ssh_password> [-F <firmware_file>] [-T <module>]
+                        [-H <bmc_ip>] [-C] [-o <output_log_file>] [-p <bmc_port>]
+                        [--config <config_file>] [-s <oem_fru>] [-v]
+                        [--skip_same_version] [-d] [-L <path>] [--task-id <task_id>]
 
-    optional arguments:
-      -h, --help            show this help message and exit
-      -U <username>         Username of BMC
-      -P <password>         Password of BMC
-      -F <firmware_file>    Firmware file path (absolute/relative)
-      -T <module>           The module to be updated: BMC|CEC|BIOS|FRU|CONFIG|BUNDLE
-      -H <bmc_ip>           IP/Host of BMC
-      -C                    Reset to factory configuration (Only used for BMC|BIOS)
-      -o <output_log_file>, --output <output_log_file>
+    options:
+    -h, --help            show this help message and exit
+    -U <username>         Username of BMC
+    -P <password>         Password of BMC
+    -S <ssh_username>     Username of BMC SSH access
+    -K <ssh_password>     SSH password of BMC
+    -F <firmware_file>    Firmware file path (absolute/relative)
+    -T <module>           The module to be updated: BMC|CEC|BIOS|FRU|CONFIG|BUNDLE
+    -H <bmc_ip>           IP/Host of BMC
+    -C                    Reset to factory configuration (Only used for BMC|BIOS)
+    -o <output_log_file>, --output <output_log_file>
                             Output log file
-      -p <bmc_port>, --port <bmc_port>
-                            Port of BMC
-      --config <config_file>
+    -p <bmc_port>, --port <bmc_port>
+                            Port of BMC (443 by default).
+    --config <config_file>
                             Configuration file
-      -s <oem_fru>          FRU data in the format Section:Key=Value
-      -v, --version         Show the version of this scripts
-      --skip_same_version   Do not upgrade, if upgrade version is the same as
-                            current running version
-      -d, --debug           Show more debug info
+    -s <oem_fru>          FRU data in the format "Section:Key=Value"
+    -v, --version         Show the version of this scripts
+    --skip_same_version   Do not upgrade, if upgrade version is the same as current running version
+    -d, --debug           Show more debug info
+    -L <path>             Linux path to save the cfg file
+    --task-id <task_id>   Unique identifier for the task
 
 ## Example
 ### Update BMC firmware
@@ -92,21 +98,28 @@ OobUpdate.sh is a program for updating various component firmware of BlueField D
 
 ### Update BlueField firmware bundle - including only firmware components ATF, UEFI, BMC, CEC and NIC Firmware
 
-    # ./OobUpdate.sh -U root -P Nvidia20240604-- -H 10.237.121.98  -T BUNDLE -F /opt/bf-fwbundle-2.10.0-147_25.01-prod.bfb
+    # ./OobUpdate.sh -U root -P Nvidia20240604-- -S root -K Nvidia20240604 -H 10.237.121.98  -T BUNDLE -F /opt/bf-fwbundle-2.9.2-50_25.02-prod.bfb
+    Configuration file saved to /tmp/task_1744756816500/1744756816500_bmgyt.cfg
+    New merged file created at /tmp/task_1744756816500/1744756816500_btoiz_new.bfb
+    Info file created at /tmp/task_1744756816500/1744756816500_info.json
+    Try to enable rshim on BMC
+    Process|: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
     Start to do Simple Update (HTTP)
     Process-: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
-    Wait for DPU(ARM) boot completion
+    Waiting for the BFB installation to finish
     Process|: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
-    Restart CEC to make new firmware take effect
-    Process-: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+    CEC firmware was not updated; Skip CEC reboot.
     Restart BMC to make new firmware take effect
     Process|: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
-                                              OLD Version                               NEW Version
-           BMC :                              BF-24.10-24                                BF-25.01-4
-           CEC :                      00.02.0195.0000_n02                       00.02.0195.0000_n02
-           ATF :        v2.2(release):4.9.2-14-geeb9a6f94        v2.2(release):4.10.0-41-gea03e14b3
-           NIC :                               32.43.2566                                32.44.1036
-          UEFI :                     4.9.2-25-ge0f86cebd6                     4.10.0-81-gb011ce66f6
+                                            OLD Version                               NEW Version                               BFB Version
+        BMC :                              BF-24.10-24                               BF-24.10-24                                  24.10-24
+        CEC :                      00.02.0195.0000_n02                       00.02.0195.0000_n02                           00.02.0195.0000
+        ATF :        v2.2(release):4.9.2-14-geeb9a6f94         v2.2(release):4.9.2-15-g302b394ef                       4.9.2-15-g302b394ef
+        NIC :                               32.44.1036                                32.43.2712                                32.43.2712
+        UEFI :                     4.9.2-27-ga30d20998e                      4.9.2-27-ga30d20998e                      4.9.2-27-ga30d20998e
+
+        Upgrade finished!
+
 
 ### Update Config Image
 
