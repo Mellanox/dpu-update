@@ -170,17 +170,21 @@ def main():
 
     # Only call file creation and merging functions when executing upgrade actions with -T
     if args.module:
-        # Create configuration file
-        if not args.ssh_username:
-            args.ssh_username = args.username
-        if not args.ssh_password:
-            args.ssh_password = args.password
+        if not args.username or not args.password:
+            print("Username -U and password -P are required for modules update")
+            return 1
 
+        # Create configuration file
         cfg_file_path = create_cfg_file(args.username, args.password, args.ssh_username, args.ssh_password, args.config_path, args.task_id)
         # Merge files
         new_fw_file_path = merge_files(cfg_file_path, args.fw_file_path, args.task_id)
 
         if args.module == 'BUNDLE':
+            if not args.ssh_username:
+                args.ssh_username = args.username
+            if not args.ssh_password:
+                args.ssh_password = args.password
+
             info_file_path = extract_info(new_fw_file_path, args.config_path, args.task_id)
             if info_file_path:
                 print(f"Info file created at {info_file_path}")
