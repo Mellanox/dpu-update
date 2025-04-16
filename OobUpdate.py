@@ -48,42 +48,42 @@ def create_random_suffix():
 
 def create_cfg_file(username, password, ssh_username, ssh_password, config_path, task_id):
     # Create a separate temporary directory for each task
-    task_dir = os.path.join(config_path, f"task_{task_id}")
+    task_dir = os.path.join(config_path, "task_{}".format(task_id))
     if not os.path.exists(task_dir):
         try:
             os.makedirs(task_dir)
         except OSError as e:
-            print(f"Error creating directory {task_dir}: {e}")
+            print("Error creating directory {}: {}".format(task_dir, e))
             return None
-    cfg_file_name = f"{task_id}_{create_random_suffix()}.cfg"
+    cfg_file_name = "{}_{}.cfg".format(task_id, create_random_suffix())
     cfg_file_path = os.path.join(task_dir, cfg_file_name)
     try:
         with open(cfg_file_path, 'w') as cfg_file:
-            cfg_file.write(f'BMC_USER="{username}"\n')
-            cfg_file.write(f'BMC_PASSWORD="{password}"\n')
-            cfg_file.write(f'BMC_SSH_USER="{ssh_username}"\n')
-            cfg_file.write(f'BMC_SSH_PASSWORD="{ssh_password}"\n')
-            cfg_file.write(f'BMC_REBOOT="yes"\n')
-        print(f"Configuration file saved to {cfg_file_path}")
+            cfg_file.write('BMC_USER="{}"\n'.format(username))
+            cfg_file.write('BMC_PASSWORD="{}"\n'.format(password))
+            cfg_file.write('BMC_SSH_USER="{}"\n'.format(ssh_username))
+            cfg_file.write('BMC_SSH_PASSWORD="{}"\n'.format(ssh_password))
+            cfg_file.write('BMC_REBOOT="yes"\n')
+        print("Configuration file saved to {}".format(cfg_file_path))
         return cfg_file_path
     except Exception as e:
-        print(f"Error creating configuration file: {e}")
+        print("Error creating configuration file: {}".format(e))
         return None
 
 def merge_files(cfg_file_path, fw_file_path, task_id):
     if not cfg_file_path or not fw_file_path or not fw_file_path.endswith('.bfb'):
         return fw_file_path
     config_dir = os.path.dirname(cfg_file_path)
-    new_fw_name = f"{task_id}_{create_random_suffix()}_new.bfb"
+    new_fw_name = "{}_{}_new.bfb".format(task_id, create_random_suffix())
     new_fw_path = os.path.join(config_dir, new_fw_name)
     try:
         with open(fw_file_path, 'rb') as f1, open(cfg_file_path, 'rb') as f2, open(new_fw_path, 'wb') as out:
             shutil.copyfileobj(f1, out)
             shutil.copyfileobj(f2, out)
-        print(f"New merged file created at {new_fw_path}")
+        print("New merged file created at {}".format(new_fw_path))
         return new_fw_path
     except Exception as e:
-        print(f"Error merging files: {e}")
+        print("Error merging files: {}".format(e))
         return fw_file_path
 
 def extract_info_json(file_path, start_pattern, end_pattern):
@@ -126,14 +126,14 @@ def extract_info(new_fw_file_path, config_path, task_id):
     start_pattern = "This JSON represents"
     end_pattern = "Members@odata.count"
     info_json = extract_info_json(new_fw_file_path, start_pattern, end_pattern)
-    info_dir = os.path.join(config_path, f"task_{task_id}")
-    info_file_name = f"{task_id}_info.json"
+    info_dir = os.path.join(config_path, "task_{}".format(task_id))
+    info_file_name = "{}_info.json".format(task_id)
     info_file_path = os.path.join(info_dir, info_file_name)
     try:
         with open(info_file_path, 'w') as info_file:
             info_file.write(info_json)
     except Exception as e:
-        print(f"Error creating info file: {e}")
+        print("Error creating info file: {}".format(e))
         return None
     return info_file_path
 
@@ -187,7 +187,7 @@ def main():
 
             info_file_path = extract_info(new_fw_file_path, args.config_path, args.task_id)
             if info_file_path:
-                print(f"Info file created at {info_file_path}")
+                print("Info file created at {}".format(info_file_path))
                 info_data = json.load(open(info_file_path))
                 if info_has_softwareid(info_data, 'config-image.bfb'):
                     reset_bios = True
