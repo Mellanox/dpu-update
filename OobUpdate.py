@@ -40,13 +40,14 @@ def get_arg_parser():
     parser.add_argument('-d', '--debug',       action='store_true',    dest="debug",                  required=False, help='Show more debug info')
     parser.add_argument('-L', metavar="<path>", dest="config_path", type=str, required=False, help='Linux path to save the cfg file', default='/tmp')
     parser.add_argument('--task-id',    metavar="<task_id>",    dest="task_id",     type=str, required=False, help='Unique identifier for the task')
+    parser.add_argument('--lfwp',       action='store_true',    dest="lfwp",        required=False, help='Life Firmware Update patch. Works only with BUNDLE module.', default=None)
     return parser
 
 def create_random_suffix():
     letters = string.ascii_lowercase
     return ''.join(random.choice(letters) for i in range(5))
 
-def create_cfg_file(username, password, ssh_username, ssh_password, config_path, task_id):
+def create_cfg_file(username, password, ssh_username, ssh_password, config_path, task_id, lfwp=None):
     # Create a separate temporary directory for each task
     task_dir = os.path.join(config_path, "task_{}".format(task_id))
     if not os.path.exists(task_dir):
@@ -64,6 +65,17 @@ def create_cfg_file(username, password, ssh_username, ssh_password, config_path,
             cfg_file.write('BMC_SSH_USER="{}"\n'.format(ssh_username))
             cfg_file.write('BMC_SSH_PASSWORD="{}"\n'.format(ssh_password))
             cfg_file.write('BMC_REBOOT="yes"\n')
+            if lfwp:
+                cfg_file.write('UPDATE_DPU_OS="no"\n')
+                cfg_file.write('UPDATE_ATF_UEFI="no"\n')
+                cfg_file.write('WITH_NIC_FW_UPDATE="yes"\n')
+                cfg_file.write('UPGRADE_EMMC_FIRMWARE="no"\n')
+                cfg_file.write('UPDATE_BMC_FW="no"\n')
+                cfg_file.write('UPDATE_CEC_FW="no"\n')
+                cfg_file.write('UPDATE_DPU_GOLDEN_IMAGE="no"\n')
+                cfg_file.write('UPDATE_NIC_FW_GOLDEN_IMAGE="no"\n')
+                cfg_file.write('UPDATE_CERTIFICATES="no"\n')
+
         print("Configuration file saved to {}".format(cfg_file_path))
         return cfg_file_path
     except Exception as e:
@@ -181,7 +193,7 @@ def main():
 
             # Only call file creation and merging functions when executing upgrade actions with -T BUNDLE
             # Create configuration file
-            cfg_file_path = create_cfg_file(args.username, args.password, args.ssh_username, args.ssh_password, args.config_path, args.task_id)
+            cfg_file_path = create_cfg_file(args.username, args.password, args.ssh_username, args.ssh_password, args.config_path, args.task_id, args.lfwp)
             # Merge files
             new_fw_file_path = merge_files(cfg_file_path, args.fw_file_path, args.task_id)
 
