@@ -37,7 +37,7 @@ class BF_DPU_Update(object):
     }
 
 
-    def __init__(self, bmc_ip, bmc_port, username, password, fw_file_path, module, oem_fru, skip_same_version, debug=False, log_file=None, use_curl=True, bfb_update_protocol = None):
+    def __init__(self, bmc_ip, bmc_port, username, password, fw_file_path, module, oem_fru, skip_same_version, debug=False, log_file=None, use_curl=True, bfb_update_protocol = None, reset_bios = False):
         self.bmc_ip            = self._parse_bmc_addr(bmc_ip)
         self.bmc_port          = bmc_port
         self.username          = username
@@ -58,6 +58,7 @@ class BF_DPU_Update(object):
         self.http_accessor     = self._get_http_accessor()
         self.bfb_update_protocol = bfb_update_protocol
         self.info_data         = None
+        self.reset_bios        = reset_bios
 
 
     def _get_prot_ip_port(self):
@@ -1180,6 +1181,10 @@ class BF_DPU_Update(object):
         self.reboot_bmc()
 
         time.sleep(60) # Wait for some time before getting all fw versions
+
+        if self.reset_bios:
+            self.send_reset_bios()
+
         new_vers = self.get_all_versions()
         self.show_old_new_versions(cur_vers, new_vers, ['BMC', 'CEC', 'ATF', 'UEFI', 'NIC'])
         return True

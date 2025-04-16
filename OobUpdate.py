@@ -205,8 +205,9 @@ def main():
                                                  args.skip_same_version,
                                                  args.debug,
                                                  args.output_file,
+                                                 use_curl = True,
                                                  bfb_update_protocol = args.bios_update_protocol,
-                                                 use_curl = True)
+                                                 reset_bios = reset_bios)
         if info_data:
             dpu_update.set_info_data(info_data)
 
@@ -217,8 +218,6 @@ def main():
         if args.fw_file_path is not None or args.oem_fru is not None:
             dpu_update.do_update()
 
-            if reset_bios:
-                dpu_update.send_reset_bios()
             print("Upgrade finished!")
 
         if args.config_file is not None:
