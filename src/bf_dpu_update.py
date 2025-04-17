@@ -1177,8 +1177,6 @@ class BF_DPU_Update(object):
 
         self._start_and_wait_simple_update_task()
         self._wait_for_dpu_ready()
-        self.try_reboot_cec()
-        self.reboot_bmc()
 
         time.sleep(60) # Wait for some time before getting all fw versions
 
