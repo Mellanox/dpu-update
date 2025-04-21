@@ -1132,19 +1132,17 @@ class BF_DPU_Update(object):
         try:
             state = response.json()['BootProgress']['OemLastState']
         except Exception as e:
-            # Retry once if failed in case BMC reboot is in progress
+            # Retry in case BMC reboot is in progress
             if self.debug:
-                print("BMC is rebooting. Retry once...")
+                print("BMC is rebooting.")
             self._wait_for_bmc_on(False)
-            if self.debug:
-                print("BMC is UP")
             try:
                 response = self._http_get(url)
                 self.log('Get DPU(ARM) boot state', response)
                 self._handle_status_code(response, [200])
                 state = response.json()['BootProgress']['OemLastState']
             except Exception as e:
-                raise Err_Exception(Err_Num.BAD_RESPONSE_FORMAT, 'Failed to extract DPU(ARM) boot state')
+                self.log('Got exception when getting DPU(ARM) boot state {}'.format(e))
         return state
 
 
