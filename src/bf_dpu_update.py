@@ -198,20 +198,21 @@ class BF_DPU_Update(object):
             return False
 
 
-    def log(self, msg, resp):
+    def log(self, msg, resp = None):
         data  = '[======== ' + msg + ' ========]: ' + '\n'
-        data += '[Request Line]: ' + '\n'
-        data += str(resp.request.method) + ' ' + resp.url + '\n'
-        data += '[Request Headers]:' + '\n'
-        data += str(resp.request.headers) + '\n'
-        data += '[Request Body]:' + '\n'
-        data += self._get_truncated_data(str(resp.request.body)) + '\n'
-        data += "[Response status line]:" + '\n'
-        data += str(resp.status_code) + ' ' + resp.reason + '\n'
-        data += "[Response Headers]:" + '\n'
-        data += json.dumps(str(resp.headers), indent=4) + '\n'
-        data += "[Response Body]:" + '\n'
-        data += resp.text + '\n'
+        if resp is not None:
+            data += '[Request Line]: ' + '\n'
+            data += str(resp.request.method) + ' ' + resp.url + '\n'
+            data += '[Request Headers]:' + '\n'
+            data += str(resp.request.headers) + '\n'
+            data += '[Request Body]:' + '\n'
+            data += self._get_truncated_data(str(resp.request.body)) + '\n'
+            data += "[Response status line]:" + '\n'
+            data += str(resp.status_code) + ' ' + resp.reason + '\n'
+            data += "[Response Headers]:" + '\n'
+            data += json.dumps(str(resp.headers), indent=4) + '\n'
+            data += "[Response Body]:" + '\n'
+            data += resp.text + '\n'
 
         if self.debug:
             print(data, end='')
