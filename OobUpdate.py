@@ -186,10 +186,9 @@ def main():
             return 1
 
         if args.module == 'BUNDLE':
-            if not args.ssh_username:
-                args.ssh_username = args.username
-            if not args.ssh_password:
-                args.ssh_password = args.password
+            if not args.ssh_username or not args.ssh_password:
+                print("SSH Username -S and SSH Password -K are required for BUNDLE update")
+                return 1
 
             # Only call file creation and merging functions when executing upgrade actions with -T BUNDLE
             # Create configuration file
