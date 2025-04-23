@@ -203,6 +203,9 @@ def main():
                 info_data = json.load(open(info_file_path))
                 if info_has_softwareid(info_data, 'config-image.bfb'):
                     reset_bios = True
+        else:
+            if args.fw_file_path:
+                new_fw_file_path = args.fw_file_path
     else:
         new_fw_file_path = args.fw_file_path
 
