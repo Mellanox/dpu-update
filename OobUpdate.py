@@ -16,7 +16,7 @@ import bf_dpu_update
 
 
 # Version of this script tool
-Version = '25.04-1.7'
+Version = '25.04-1.8'
 
 
 def get_arg_parser():
