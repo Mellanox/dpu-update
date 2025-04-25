@@ -40,7 +40,7 @@ def get_arg_parser():
     parser.add_argument('-d', '--debug',       action='store_true',    dest="debug",                  required=False, help='Show more debug info')
     parser.add_argument('-L', metavar="<path>", dest="config_path", type=str, required=False, help='Linux path to save the cfg file', default='/tmp')
     parser.add_argument('--task-id',    metavar="<task_id>",    dest="task_id",     type=str, required=False, help='Unique identifier for the task')
-    parser.add_argument('--lfwp',       action='store_true',    dest="lfwp",        required=False, help='Life Firmware Update patch. Works only with BUNDLE module.', default=None)
+    parser.add_argument('--lfwp',       action='store_true',    dest="lfwp",        required=False, help='Live Firmware Update patch. Works only with BUNDLE module.', default=False)
     return parser
 
 def create_random_suffix():
@@ -64,24 +64,33 @@ def create_cfg_file(username, password, ssh_username, ssh_password, config_path,
             cfg_file.write('BMC_PASSWORD="{}"\n'.format(password))
             cfg_file.write('BMC_SSH_USER="{}"\n'.format(ssh_username))
             cfg_file.write('BMC_SSH_PASSWORD="{}"\n'.format(ssh_password))
-            cfg_file.write('BMC_REBOOT="yes"\n')
-            cfg_file.write('CEC_REBOOT="yes"\n')
             if lfwp:
-                cfg_file.write('UPDATE_DPU_OS="no"\n')
-                cfg_file.write('UPDATE_ATF_UEFI="no"\n')
-                cfg_file.write('WITH_NIC_FW_UPDATE="yes"\n')
-                cfg_file.write('UPGRADE_EMMC_FIRMWARE="no"\n')
-                cfg_file.write('UPDATE_BMC_FW="no"\n')
-                cfg_file.write('UPDATE_CEC_FW="no"\n')
-                cfg_file.write('UPDATE_DPU_GOLDEN_IMAGE="no"\n')
-                cfg_file.write('UPDATE_NIC_FW_GOLDEN_IMAGE="no"\n')
-                cfg_file.write('UPDATE_CERTIFICATES="no"\n')
+                cfg_file.write('LFWP="yes"\n')
+            else:
+                cfg_file.write('BMC_REBOOT="yes"\n')
+                cfg_file.write('CEC_REBOOT="yes"\n')
 
         print("Configuration file saved to {}".format(cfg_file_path))
         return cfg_file_path
     except Exception as e:
         print("Error creating configuration file: {}".format(e))
         return None
+
+def make_lfwp_bfb(cfg_file_path, fw_file_path, task_id):
+    if not cfg_file_path or not fw_file_path or not fw_file_path.endswith('.bfb'):
+        return fw_file_path
+    config_dir = os.path.dirname(cfg_file_path)
+    new_fw_name = "{}_{}_lfwp.bfb".format(task_id, create_random_suffix())
+    new_fw_path = os.path.join(config_dir, new_fw_name)
+    try:
+        original_dir = os.getcwd()
+        work_dir = os.path.dirname(cfg_file_path)
+        os.system("{tool} --boot-args-v0 {cfg_file} {bfb_file} {new_bfb_file}".format(tool=original_dir + "/src/mlx-mkbfb", cfg_file=cfg_file_path, bfb_file=fw_file_path, new_bfb_file=new_fw_path))
+        print("New lfwp bfb file created at {}".format(new_fw_path))
+        return new_fw_path
+    except Exception as e:
+        print("Error making lfwp bfb file: {}".format(e))
+        return fw_file_path
 
 def merge_files(cfg_file_path, fw_file_path, task_id):
     if not cfg_file_path or not fw_file_path or not fw_file_path.endswith('.bfb'):
@@ -194,8 +203,12 @@ def main():
             # Only call file creation and merging functions when executing upgrade actions with -T BUNDLE
             # Create configuration file
             cfg_file_path = create_cfg_file(args.username, args.password, args.ssh_username, args.ssh_password, args.config_path, args.task_id, args.lfwp)
-            # Merge files
-            new_fw_file_path = merge_files(cfg_file_path, args.fw_file_path, args.task_id)
+            if args.lfwp:
+                # Make lfwp bfb file
+                new_fw_file_path = make_lfwp_bfb(cfg_file_path, args.fw_file_path, args.task_id)
+            else:
+                # Merge files
+                new_fw_file_path = merge_files(cfg_file_path, args.fw_file_path, args.task_id)
 
             info_file_path = extract_info(new_fw_file_path, args.config_path, args.task_id)
             if info_file_path:
@@ -222,7 +235,8 @@ def main():
                                                  args.output_file,
                                                  use_curl = True,
                                                  bfb_update_protocol = args.bios_update_protocol,
-                                                 reset_bios = reset_bios)
+                                                 reset_bios = reset_bios,
+                                                 lfwp = args.lfwp)
         if info_data:
             dpu_update.set_info_data(info_data)
 

@@ -37,7 +37,7 @@ class BF_DPU_Update(object):
     }
 
 
-    def __init__(self, bmc_ip, bmc_port, username, password, fw_file_path, module, oem_fru, skip_same_version, debug=False, log_file=None, use_curl=True, bfb_update_protocol = None, reset_bios = False):
+    def __init__(self, bmc_ip, bmc_port, username, password, fw_file_path, module, oem_fru, skip_same_version, debug=False, log_file=None, use_curl=True, bfb_update_protocol = None, reset_bios = False, lfwp = False):
         self.bmc_ip            = self._parse_bmc_addr(bmc_ip)
         self.bmc_port          = bmc_port
         self.username          = username
@@ -59,6 +59,7 @@ class BF_DPU_Update(object):
         self.bfb_update_protocol = bfb_update_protocol
         self.info_data         = None
         self.reset_bios        = reset_bios
+        self.lfwp              = lfwp
 
 
     def _get_prot_ip_port(self):
@@ -1166,6 +1167,34 @@ class BF_DPU_Update(object):
         print()
 
 
+    def enable_runtime_rshim(self):
+        self.log("Enable runtime rshim")
+        url = self._get_url_base() + '/Systems/Bluefield/Oem/Nvidia/Actions/LFWP.Set'
+        headers = {
+            'Content-Type' : 'application/json'
+        }
+        data = {
+            'LFWP' : 'Enabled'
+        }
+        response = self._http_post(url, data=json.dumps(data), headers=headers)
+        self.log('Enable runtime rshim', response)
+        self._handle_status_code(response, [200])
+
+
+    def disable_runtime_rshim(self):
+        self.log("Disable runtime rshim")
+        url = self._get_url_base() + '/Systems/Bluefield/Oem/Nvidia/Actions/LFWP.Set'
+        headers = {
+            'Content-Type' : 'application/json'
+        }
+        data = {
+            'LFWP' : 'Disabled'
+        }
+        response = self._http_post(url, data=json.dumps(data), headers=headers)
+        self.log('Disable runtime rshim', response)
+        self._handle_status_code(response, [200])
+
+
     def update_bundle(self):
         self.validate_arg_for_update()
         self.wait_update_service_ready()
@@ -1174,14 +1203,20 @@ class BF_DPU_Update(object):
         if not self.try_enable_rshim_on_bmc():
             raise Err_Exception(Err_Num.FAILED_TO_ENABLE_BMC_RSHIM, 'Please make sure rshim on Host side is disabled')
 
+        if self.lfwp:
+            self.enable_runtime_rshim()
         self._start_and_wait_simple_update_task()
-        self._wait_for_dpu_ready()
-
-        if self.reset_bios:
-            self.send_reset_bios()
+        if self.lfwp:
+            self.disable_runtime_rshim()
+            time.sleep(120) # Wait for NIC fw to be updated and mlxfwreset to be done
+        else:
             self._wait_for_dpu_ready()
 
-        time.sleep(60) # Wait for some time before getting all fw versions
+        if self.reset_bios and not self.lfwp:
+            self.send_reset_bios()
+            self._wait_for_dpu_ready()
+            time.sleep(60) # Wait for some time before getting all fw versions
+
         new_vers = self.get_all_versions()
         self.show_old_new_versions(cur_vers, new_vers, ['BMC', 'CEC', 'ATF', 'UEFI', 'NIC'])
         return True

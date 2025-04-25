@@ -40,6 +40,7 @@ Note: bf-fwbundle is supported starting from version 2.9.2.
     -d, --debug           Show more debug info
     -L <path>             Linux path to save the cfg file
     --task-id <task_id>   Unique identifier for the task
+    --lfwp                Live Firmware Update patch. Works only with BUNDLE module.
 
 ## Example
 ### Update BMC firmware
