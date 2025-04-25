@@ -246,6 +246,19 @@ class BF_DPU_Update(object):
         raise Err_Exception(Err_Num.INVALID_STATUS_CODE, 'status code: {}; {}'.format(response.status_code, msg))
 
 
+    def format_ver(self, ver):
+        suffix = "_n02"
+        if ver.endswith(suffix):
+            return ver[:-len(suffix)]
+        prefix = "BF-"
+        if ver.startswith(prefix):
+            return ver[len(prefix):]
+        if ':' in ver:
+            return ver.split(':', 1)[1]
+
+        return ver
+
+
     def get_ver_by_uri(self, uri):
         url = self._get_prot_ip_port() + uri
         response = self._http_get(url)
@@ -254,7 +267,8 @@ class BF_DPU_Update(object):
 
         ver = ''
         try:
-            ver = response.json()['Version']
+            ver = self.format_ver(response.json()['Version'])
+
         except Exception as e:
             raise Err_Exception(Err_Num.BAD_RESPONSE_FORMAT, 'Failed to extract firmware version')
 

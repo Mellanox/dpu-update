@@ -50,9 +50,9 @@ Note: bf-fwbundle is supported starting from version 2.9.2.
     Restart BMC to make new firmware take effect
     Process-: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
     OLD BMC Firmware Version:
-            BF-24.03-4
+            24.03-4
     New BMC Firmware Version:
-            BF-24.04-5
+            24.04-5
 
 ### Combine BMC firmware with config file update together
 
@@ -62,9 +62,9 @@ Note: bf-fwbundle is supported starting from version 2.9.2.
     Restart BMC to make new firmware take effect
     Process-: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
     OLD BMC Firmware Version:
-            BF-24.03-4
+            24.03-4
     New BMC Firmware Version:
-            BF-24.04-5
+            24.04-5
     Start to Simple Update (HTTP)
     Process-: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
     Factory reset BIOS configuration (ResetBios) (will reboot the system)
@@ -80,9 +80,9 @@ Note: bf-fwbundle is supported starting from version 2.9.2.
     Restart CEC to make new firmware take effect
     Process|: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
     OLD CEC Firmware Version:
-            00.02.0180.0000_n02
+            00.02.0180.0000
     New CEC Firmware Version:
-            00.02.0182.0000_n02
+            00.02.0182.0000
 
 ### Update BIOS firmware
 
@@ -92,9 +92,9 @@ Note: bf-fwbundle is supported starting from version 2.9.2.
     Wait for BIOS ready
     Process-: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
     Old BIOS Firmware Version:
-            ATF--v2.2(release):4.8.0-14-gc58efcd, UEFI--4.8.0-11-gbd389cc
+            ATF--4.8.0-14-gc58efcd, UEFI--4.8.0-11-gbd389cc
     New BIOS Firmware Version:
-            ATF--v2.2(release):4.7.0-25-g5569834, UEFI--4.7.0-42-g13081ae
+            ATF--4.7.0-25-g5569834, UEFI--4.7.0-42-g13081ae
 
 ### Update BlueField firmware bundle - including only firmware components ATF, UEFI, BMC, CEC and NIC Firmware
 
@@ -112,10 +112,10 @@ Note: bf-fwbundle is supported starting from version 2.9.2.
     Restart BMC to make new firmware take effect
     Process|: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
                                             OLD Version                               NEW Version                               BFB Version
-        BMC :                              BF-24.10-24                               BF-24.10-24                                  24.10-24
-        CEC :                      00.02.0195.0000_n02                       00.02.0195.0000_n02                           00.02.0195.0000
-        ATF :        v2.2(release):4.9.2-14-geeb9a6f94         v2.2(release):4.9.2-15-g302b394ef                       4.9.2-15-g302b394ef
-        NIC :                               32.44.1036                                32.43.2712                                32.43.2712
+        BMC :                                  24.10-24                                  24.10-24                                  24.10-24
+        CEC :                           00.02.0195.0000                           00.02.0195.0000                           00.02.0195.0000
+        ATF :                       4.9.2-14-geeb9a6f94                       4.9.2-15-g302b394ef                       4.9.2-15-g302b394ef
+        NIC :                                32.44.1036                                32.43.2712                                32.43.2712
         UEFI :                     4.9.2-27-ga30d20998e                      4.9.2-27-ga30d20998e                      4.9.2-27-ga30d20998e
 
         Upgrade finished!
