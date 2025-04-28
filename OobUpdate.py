@@ -140,7 +140,7 @@ def extract_info(new_fw_file_path, config_path, task_id):
     end_pattern = "Members@odata.count"
     info_json = extract_info_json(new_fw_file_path, start_pattern, end_pattern)
     info_dir = os.path.join(config_path, "task_{}".format(task_id))
-    info_file_name = "{}_info.json".format(task_id)
+    info_file_name = "{}_{}_info.json".format(task_id, create_random_suffix())
     info_file_path = os.path.join(info_dir, info_file_name)
     try:
         with open(info_file_path, 'w') as info_file:
