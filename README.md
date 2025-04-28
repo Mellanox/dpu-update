@@ -112,9 +112,9 @@ Note: bf-fwbundle is supported starting from version 2.9.2.
     Restart BMC to make new firmware take effect
     Process|: 100%: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
                                             OLD Version                               NEW Version                               BFB Version
-        BMC :                              BF-24.10-24                               BF-24.10-24                                  24.10-24
-        CEC :                      00.02.0195.0000_n02                       00.02.0195.0000_n02                           00.02.0195.0000
-        ATF :        v2.2(release):4.9.2-14-geeb9a6f94         v2.2(release):4.9.2-15-g302b394ef                       4.9.2-15-g302b394ef
+        BMC :                              BF-24.10-24                               BF-24.10-24                               BF-24.10-24
+        CEC :                      00.02.0195.0000_n02                       00.02.0195.0000_n02                       00.02.0195.0000_n02
+        ATF :        v2.2(release):4.9.2-14-geeb9a6f94         v2.2(release):4.9.2-15-g302b394ef         v2.2(release):4.9.2-15-g302b394ef
         NIC :                               32.44.1036                                32.43.2712                                32.43.2712
         UEFI :                     4.9.2-27-ga30d20998e                      4.9.2-27-ga30d20998e                      4.9.2-27-ga30d20998e
 

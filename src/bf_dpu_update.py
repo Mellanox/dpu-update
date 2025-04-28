@@ -1427,6 +1427,12 @@ class BF_DPU_Update(object):
 
         for member in self.info_data["Members"]:
             if member["Name"] == info_module[module]:
+                if member["Name"] == "BF3_BMC_FW":
+                    member["Version"] = "BF-" + member["Version"]
+                elif member["Name"] == "BF3_CEC_FW":
+                    member["Version"] = member["Version"] + "_n02"
+                elif member["Name"] == "BF3_ATF":
+                    member["Version"] = self.extract_atf_uefi_ver_from_fw_file()
                 return member["Version"]
         return ''
 
