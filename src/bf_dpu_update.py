@@ -1320,7 +1320,7 @@ class BF_DPU_Update(object):
         # Process each item in the provided OEM FRU data
         for item in self.oem_fru:
             try:
-                section_key, value = item.split('=')
+                section_key, value = item.split('=', 1)
                 section, key = section_key.split(':')
                 combined_key = section + key
                 # Check if the value exceeds 63 characters
