@@ -90,7 +90,7 @@ def make_lfwp_bfb(cfg_file_path, fw_file_path, task_id):
         return new_fw_path
     except Exception as e:
         print("Error making lfwp bfb file: {}".format(e))
-        return fw_file_path
+        return None
 
 def merge_files(cfg_file_path, fw_file_path, task_id):
     if not cfg_file_path or not fw_file_path or not fw_file_path.endswith('.bfb'):
@@ -106,7 +106,7 @@ def merge_files(cfg_file_path, fw_file_path, task_id):
         return new_fw_path
     except Exception as e:
         print("Error merging files: {}".format(e))
-        return fw_file_path
+        return None
 
 def extract_info_json(file_path, start_pattern, end_pattern):
     # Open the binary file
@@ -203,6 +203,9 @@ def main():
             # Only call file creation and merging functions when executing upgrade actions with -T BUNDLE
             # Create configuration file
             cfg_file_path = create_cfg_file(args.username, args.password, args.ssh_username, args.ssh_password, args.config_path, args.task_id, args.lfwp)
+            if not cfg_file_path:
+                return 1
+
             if args.lfwp:
                 # Make lfwp bfb file
                 new_fw_file_path = make_lfwp_bfb(cfg_file_path, args.fw_file_path, args.task_id)
@@ -210,10 +213,17 @@ def main():
                 # Merge files
                 new_fw_file_path = merge_files(cfg_file_path, args.fw_file_path, args.task_id)
 
+            if not new_fw_file_path:
+                return 1
+
             info_file_path = extract_info(new_fw_file_path, args.config_path, args.task_id)
             if info_file_path:
                 print("Info file created at {}".format(info_file_path))
-                info_data = json.load(open(info_file_path))
+                try:
+                    info_data = json.load(open(info_file_path))
+                except Exception as e:
+                    print("Error loading info file: {}".format(e))
+                    return 1
                 if info_has_softwareid(info_data, 'config-image.bfb'):
                     reset_bios = True
         else:
