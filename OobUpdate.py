@@ -27,6 +27,7 @@ def get_arg_parser():
     parser.add_argument('-K',             metavar="<ssh_password>",    dest="ssh_password",     type=str, required=False, help='SSH password of BMC')
     parser.add_argument('-F',             metavar="<firmware_file>",   dest="fw_file_path", type=str, required=False, help='Firmware file path (absolute/relative)')
     parser.add_argument('-T',             metavar="<module>",          dest="module",       type=str, required=False, help='The module to be updated: BMC|CEC|BIOS|FRU|CONFIG|BUNDLE', choices=('BMC', 'CEC', 'BIOS', 'FRU', 'CONFIG', 'BUNDLE'))
+    parser.add_argument('--with-config',  action='store_true',         dest="with_config",            required=False, help='Update the configuration image file during the BUNDLE update process.', default=False)
     parser.add_argument('-H',             metavar="<bmc_ip>",          dest="bmc_ip",       type=str, required=False, help='IP/Host of BMC')
     parser.add_argument('-C',             action='store_true',         dest="clear_config",           required=False, help='Reset to factory configuration (Only used for BMC|BIOS)')
     parser.add_argument('-o', '--output', metavar="<output_log_file>", dest="output_file",  type=str, required=False, help='Output log file')
@@ -47,7 +48,7 @@ def create_random_suffix():
     letters = string.ascii_lowercase
     return ''.join(random.choice(letters) for i in range(5))
 
-def create_cfg_file(username, password, ssh_username, ssh_password, config_path, task_id, lfwp=None):
+def create_cfg_file(username, password, ssh_username, ssh_password, config_path, task_id, lfwp=None, with_config=False):
     # Create a separate temporary directory for each task
     task_dir = os.path.join(config_path, "task_{}".format(task_id))
     if not os.path.exists(task_dir):
@@ -69,6 +70,10 @@ def create_cfg_file(username, password, ssh_username, ssh_password, config_path,
             else:
                 cfg_file.write('BMC_REBOOT="yes"\n')
                 cfg_file.write('CEC_REBOOT="yes"\n')
+            if with_config:
+                cfg_file.write('UPLOAD_CONFIG_IMAGE="yes"\n')
+            else:
+                cfg_file.write('UPLOAD_CONFIG_IMAGE="no"\n')
 
         print("Configuration file saved to {}".format(cfg_file_path))
         return cfg_file_path
@@ -202,7 +207,7 @@ def main():
 
             # Only call file creation and merging functions when executing upgrade actions with -T BUNDLE
             # Create configuration file
-            cfg_file_path = create_cfg_file(args.username, args.password, args.ssh_username, args.ssh_password, args.config_path, args.task_id, args.lfwp)
+            cfg_file_path = create_cfg_file(args.username, args.password, args.ssh_username, args.ssh_password, args.config_path, args.task_id, args.lfwp, args.with_config)
             if not cfg_file_path:
                 return 1
 
@@ -224,7 +229,7 @@ def main():
                 except Exception as e:
                     print("Error loading info file: {}".format(e))
                     return 1
-                if info_has_softwareid(info_data, 'config-image.bfb'):
+                if info_has_softwareid(info_data, 'config-image.bfb') and args.with_config:
                     reset_bios = True
         else:
             if args.fw_file_path:

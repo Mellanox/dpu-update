@@ -26,6 +26,7 @@ Note: bf-fwbundle is supported starting from version 2.9.2.
     -K <ssh_password>     SSH password of BMC
     -F <firmware_file>    Firmware file path (absolute/relative)
     -T <module>           The module to be updated: BMC|CEC|BIOS|FRU|CONFIG|BUNDLE
+    --with-config         Update the configuration image file during the BUNDLE update process.
     -H <bmc_ip>           IP/Host of BMC
     -C                    Reset to factory configuration (Only used for BMC|BIOS)
     -o <output_log_file>, --output <output_log_file>
