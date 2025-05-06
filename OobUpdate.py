@@ -90,7 +90,8 @@ def make_lfwp_bfb(cfg_file_path, fw_file_path, task_id):
     try:
         original_dir = os.getcwd()
         work_dir = os.path.dirname(cfg_file_path)
-        os.system("{tool} --boot-args-v0 {cfg_file} {bfb_file} {new_bfb_file}".format(tool=original_dir + "/src/mlx-mkbfb", cfg_file=cfg_file_path, bfb_file=fw_file_path, new_bfb_file=new_fw_path))
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        os.system("{script_dir}/src/mlx-mkbfb --boot-args-v0 {cfg_file} {bfb_file} {new_bfb_file}".format(script_dir=script_dir, cfg_file=cfg_file_path, bfb_file=fw_file_path, new_bfb_file=new_fw_path))
         print("New lfwp bfb file created at {}".format(new_fw_path))
         return new_fw_path
     except Exception as e:
