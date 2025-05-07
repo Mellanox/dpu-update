@@ -280,6 +280,8 @@ def main():
         if args.clear_config:
             dpu_update.reset_config()
 
+        if not args.debug:
+            shutil.rmtree(task_dir)
         return 0
 
     except bf_dpu_update.Err_Exception as e:
@@ -287,12 +289,16 @@ def main():
         if args.debug:
             import traceback
             traceback.print_exc()
+        else:
+            shutil.rmtree(task_dir)
         return e.err_num.value
     except Exception as e:
         sys.stderr.write("[Error Happened]:\n\t" + str(e) + '; please use -d to get detail info \n')
         if args.debug:
             import traceback
             traceback.print_exc()
+        else:
+            shutil.rmtree(task_dir)
         return bf_dpu_update.Err_Num.OTHER_EXCEPTION.value
 
 if __name__ == '__main__':
