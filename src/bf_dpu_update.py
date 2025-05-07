@@ -215,6 +215,9 @@ class BF_DPU_Update(object):
             data += "[Response Body]:" + '\n'
             data += resp.text + '\n'
 
+        data = data.replace(self.password, '<password>')
+        data = data.replace(self.username, '<username>')
+
         if self.debug:
             print(data, end='')
         if self.log_file is not None:
