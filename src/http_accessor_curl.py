@@ -37,13 +37,14 @@ class CURL_Response(object):
 
 
 class HTTP_Accessor(object):
-    def __init__(self, url, method, username, password, headers, timeout=(60, 60)):
+    def __init__(self, url, method, username, password, task_dir, headers, timeout=(60, 60)):
         self.url = url
         self.method = method
         self.username = username
         self.password = password
         self.headers = headers
         self.timeout = timeout
+        self.task_dir = task_dir
 
 
     def access(self, data=None):
@@ -85,8 +86,8 @@ class HTTP_Accessor(object):
 
         ts = str(time.time())
         pid = os.getpid()
-        resp_body_file    = '/tmp/dpu_update_resp_body_{}_{}.txt'.format(ts, pid)
-        resp_headers_file = '/tmp/dpu_update_resp_headers_{}_{}.txt'.format(ts, pid)
+        resp_body_file    = os.path.join(self.task_dir, 'dpu_update_resp_body_{}_{}.txt'.format(ts, pid))
+        resp_headers_file = os.path.join(self.task_dir, 'dpu_update_resp_headers_{}_{}.txt'.format(ts, pid))
 
         output_param  = '-D {} -o {}'.format(resp_headers_file, resp_body_file)
         auth_param    = "-u '{}':'{}'".format(self.username, self.password)
