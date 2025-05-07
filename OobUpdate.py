@@ -18,7 +18,6 @@ import bf_dpu_update
 # Version of this script tool
 Version = '25.04-2.0'
 
-
 def get_arg_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('-U',             metavar="<username>",        dest="username",     type=str, required=False, help='Username of BMC')
@@ -48,15 +47,7 @@ def create_random_suffix():
     letters = string.ascii_lowercase
     return ''.join(random.choice(letters) for i in range(5))
 
-def create_cfg_file(username, password, ssh_username, ssh_password, config_path, task_id, lfwp=None, with_config=False):
-    # Create a separate temporary directory for each task
-    task_dir = os.path.join(config_path, "task_{}".format(task_id))
-    if not os.path.exists(task_dir):
-        try:
-            os.makedirs(task_dir)
-        except OSError as e:
-            print("Error creating directory {}: {}".format(task_dir, e))
-            return None
+def create_cfg_file(username, password, ssh_username, ssh_password, task_dir, task_id, lfwp=None, with_config=False):
     cfg_file_name = "{}_{}.cfg".format(task_id, create_random_suffix())
     cfg_file_path = os.path.join(task_dir, cfg_file_name)
     try:
@@ -81,15 +72,12 @@ def create_cfg_file(username, password, ssh_username, ssh_password, config_path,
         print("Error creating configuration file: {}".format(e))
         return None
 
-def make_lfwp_bfb(cfg_file_path, fw_file_path, task_id):
-    if not cfg_file_path or not fw_file_path or not fw_file_path.endswith('.bfb'):
+def make_lfwp_bfb(cfg_file_path, fw_file_path, task_dir, task_id):
+    if not fw_file_path or not fw_file_path.endswith('.bfb'):
         return fw_file_path
-    config_dir = os.path.dirname(cfg_file_path)
     new_fw_name = "{}_{}_lfwp.bfb".format(task_id, create_random_suffix())
-    new_fw_path = os.path.join(config_dir, new_fw_name)
+    new_fw_path = os.path.join(task_dir, new_fw_name)
     try:
-        original_dir = os.getcwd()
-        work_dir = os.path.dirname(cfg_file_path)
         script_dir = os.path.dirname(os.path.abspath(__file__))
         os.system("{script_dir}/src/mlx-mkbfb --boot-args-v0 {cfg_file} {bfb_file} {new_bfb_file}".format(script_dir=script_dir, cfg_file=cfg_file_path, bfb_file=fw_file_path, new_bfb_file=new_fw_path))
         print("New lfwp bfb file created at {}".format(new_fw_path))
@@ -98,12 +86,11 @@ def make_lfwp_bfb(cfg_file_path, fw_file_path, task_id):
         print("Error making lfwp bfb file: {}".format(e))
         return None
 
-def merge_files(cfg_file_path, fw_file_path, task_id):
+def merge_files(cfg_file_path, fw_file_path, task_dir, task_id):
     if not cfg_file_path or not fw_file_path or not fw_file_path.endswith('.bfb'):
         return fw_file_path
-    config_dir = os.path.dirname(cfg_file_path)
     new_fw_name = "{}_{}_new.bfb".format(task_id, create_random_suffix())
-    new_fw_path = os.path.join(config_dir, new_fw_name)
+    new_fw_path = os.path.join(task_dir, new_fw_name)
     try:
         with open(fw_file_path, 'rb') as f1, open(cfg_file_path, 'rb') as f2, open(new_fw_path, 'wb') as out:
             shutil.copyfileobj(f1, out)
@@ -150,13 +137,12 @@ def extract_info_json(file_path, start_pattern, end_pattern):
 
     return json_segment
 
-def extract_info(new_fw_file_path, config_path, task_id):
+def extract_info(new_fw_file_path, task_dir, task_id):
     start_pattern = "This JSON represents"
     end_pattern = "Members@odata.count"
     info_json = extract_info_json(new_fw_file_path, start_pattern, end_pattern)
-    info_dir = os.path.join(config_path, "task_{}".format(task_id))
     info_file_name = "{}_{}_info.json".format(task_id, create_random_suffix())
-    info_file_path = os.path.join(info_dir, info_file_name)
+    info_file_path = os.path.join(task_dir, info_file_name)
     try:
         with open(info_file_path, 'w') as info_file:
             info_file.write(info_json)
@@ -196,6 +182,15 @@ def main():
     if not args.task_id:
         args.task_id = str(int(time.time() * 1000))
 
+    task_dir = os.path.join(args.config_path, "task_{}_{}".format(args.task_id, create_random_suffix()))
+    # Create a separate temporary directory for each task
+    if not os.path.exists(task_dir):
+        try:
+            os.makedirs(task_dir)
+        except OSError as e:
+            print("Error creating directory {}: {}".format(task_dir, e))
+            return 1
+
     if args.module:
         if not args.username or not args.password:
             print("Username -U and password -P are required for modules update")
@@ -208,21 +203,21 @@ def main():
 
             # Only call file creation and merging functions when executing upgrade actions with -T BUNDLE
             # Create configuration file
-            cfg_file_path = create_cfg_file(args.username, args.password, args.ssh_username, args.ssh_password, args.config_path, args.task_id, args.lfwp, args.with_config)
+            cfg_file_path = create_cfg_file(args.username, args.password, args.ssh_username, args.ssh_password, task_dir, args.task_id, args.lfwp, args.with_config)
             if not cfg_file_path:
                 return 1
 
             if args.lfwp:
                 # Make lfwp bfb file
-                new_fw_file_path = make_lfwp_bfb(cfg_file_path, args.fw_file_path, args.task_id)
+                new_fw_file_path = make_lfwp_bfb(cfg_file_path, args.fw_file_path, task_dir, args.task_id)
             else:
                 # Merge files
-                new_fw_file_path = merge_files(cfg_file_path, args.fw_file_path, args.task_id)
+                new_fw_file_path = merge_files(cfg_file_path, args.fw_file_path, task_dir, args.task_id)
 
             if not new_fw_file_path:
                 return 1
 
-            info_file_path = extract_info(new_fw_file_path, args.config_path, args.task_id)
+            info_file_path = extract_info(new_fw_file_path, task_dir, args.task_id)
             if info_file_path:
                 print("Info file created at {}".format(info_file_path))
                 try:
