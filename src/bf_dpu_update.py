@@ -37,12 +37,13 @@ class BF_DPU_Update(object):
     }
 
 
-    def __init__(self, bmc_ip, bmc_port, username, password, fw_file_path, module, oem_fru, skip_same_version, debug=False, log_file=None, use_curl=True, bfb_update_protocol = None, reset_bios = False, lfwp = False):
+    def __init__(self, bmc_ip, bmc_port, username, password, fw_file_path, task_dir, module, oem_fru, skip_same_version, debug=False, log_file=None, use_curl=True, bfb_update_protocol = None, reset_bios = False, lfwp = False):
         self.bmc_ip            = self._parse_bmc_addr(bmc_ip)
         self.bmc_port          = bmc_port
         self.username          = username
         self.password          = password
         self.fw_file_path      = fw_file_path
+        self.task_dir          = task_dir
         self.module            = module
         self.oem_fru           = oem_fru
         self.skip_same_version = skip_same_version
@@ -93,25 +94,25 @@ class BF_DPU_Update(object):
 
 
     def _http_get(self, url, headers=None, timeout=(60, 60)):
-        return self.http_accessor(url, 'GET', self.username, self.password, headers, timeout).access()
+        return self.http_accessor(url, 'GET', self.username, self.password, self.task_dir, headers, timeout).access()
 
 
     def _http_post(self, url, data, headers=None, timeout=(120, 120)):
-        return self.http_accessor(url, 'POST', self.username, self.password, headers, timeout).access(data)
+        return self.http_accessor(url, 'POST', self.username, self.password, self.task_dir, headers, timeout).access(data)
 
 
     def _http_patch(self, url, data, headers=None, timeout=(60, 60)):
-        return self.http_accessor(url, 'PATCH', self.username, self.password, headers, timeout).access(data)
+        return self.http_accessor(url, 'PATCH', self.username, self.password, self.task_dir, headers, timeout).access(data)
 
     def _http_put(self, url, data, headers=None, timeout=(60, 60)):
-        return self.http_accessor(url, 'PUT', self.username, self.password, headers, timeout).access(data)
+        return self.http_accessor(url, 'PUT', self.username, self.password, self.task_dir, headers, timeout).access(data)
 
     def _upload_file(self, url, file_path, headers=None, timeout=(60, 60)):
-        return self.http_accessor(url, 'POST', self.username, self.password, headers, timeout).upload_file(file_path)
+        return self.http_accessor(url, 'POST', self.username, self.password, self.task_dir, headers, timeout).upload_file(file_path)
 
 
     def _multi_part_push(self, url, param, headers=None, timeout=(60, 60)):
-        return self.http_accessor(url, 'POST', self.username, self.password, headers, timeout).multi_part_push(param)
+        return self.http_accessor(url, 'POST', self.username, self.password, self.task_dir, headers, timeout).multi_part_push(param)
 
 
     def _get_truncated_data(self, data):
