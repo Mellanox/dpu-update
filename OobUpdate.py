@@ -11,12 +11,14 @@ import shutil
 import time
 import re
 import json
+import signal
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + '/src')
 import bf_dpu_update
 
 
 # Version of this script tool
 Version = '25.04-2.1'
+task_dir = None
 
 def get_arg_parser():
     parser = argparse.ArgumentParser()
@@ -42,6 +44,18 @@ def get_arg_parser():
     parser.add_argument('--task-id',    metavar="<task_id>",    dest="task_id",     type=str, required=False, help='Unique identifier for the task')
     parser.add_argument('--lfwp',       action='store_true',    dest="lfwp",        required=False, help='Live Firmware Update patch. Works only with BUNDLE module.', default=False)
     return parser
+
+def cleanup():
+    global task_dir
+    if task_dir:
+        if os.path.exists(task_dir):
+            print("Cleaning up task directory: {}".format(task_dir))
+            shutil.rmtree(task_dir)
+
+def signal_handler(signum, frame):
+    print("Signal received: {}".format(signum))
+    cleanup()
+    sys.exit(0)
 
 def create_random_suffix():
     letters = string.ascii_lowercase
@@ -163,6 +177,7 @@ def main():
     reset_bios = False
     info_data = None
     new_fw_file_path = None
+    global task_dir
 
     if args.show_version:
         print(Version)
@@ -281,7 +296,7 @@ def main():
             dpu_update.reset_config()
 
         if not args.debug:
-            shutil.rmtree(task_dir)
+            cleanup()
         return 0
 
     except bf_dpu_update.Err_Exception as e:
@@ -290,16 +305,24 @@ def main():
             import traceback
             traceback.print_exc()
         else:
-            shutil.rmtree(task_dir)
+            cleanup()
         return e.err_num.value
+    except KeyboardInterrupt:
+        print("Keyboard interrupt")
+        if not args.debug:
+            cleanup()
+        return 1
     except Exception as e:
         sys.stderr.write("[Error Happened]:\n\t" + str(e) + '; please use -d to get detail info \n')
         if args.debug:
             import traceback
             traceback.print_exc()
         else:
-            shutil.rmtree(task_dir)
+            cleanup()
         return bf_dpu_update.Err_Num.OTHER_EXCEPTION.value
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
 
 if __name__ == '__main__':
     ret = main()
