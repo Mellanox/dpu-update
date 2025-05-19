@@ -1199,7 +1199,29 @@ class BF_DPU_Update(object):
         self._handle_status_code(response, [200])
 
 
+    def is_lfwp_supported(self):
+        """Check if LFWP.Set action is supported on the BMC"""
+        try:
+            url = self._get_url_base() + '/Systems/Bluefield/Oem/Nvidia'
+            response = self._http_get(url)
+            self.log('Check LFWP.Set support', response)
+            self._handle_status_code(response, [200])
+
+            # Check if Actions/LFWP.Set exists in the response
+            if 'Actions' in response.json() and '#LFWP.Set' in response.json()['Actions']:
+                return True
+            return False
+        except Exception as e:
+            if self.debug:
+                print("Error checking LFWP.Set support: {}".format(e))
+            return False
+
+
     def update_bundle(self):
+        if self.lfwp:
+            if not self.is_lfwp_supported():
+                raise Err_Exception(Err_Num.UNSUPPORTED_MODULE, 'LFWP.Set is not supported on this BMC')
+
         self.validate_arg_for_update()
         self.wait_update_service_ready()
         cur_vers = self.get_all_versions()
