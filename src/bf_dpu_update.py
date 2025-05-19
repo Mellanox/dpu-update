@@ -800,7 +800,27 @@ class BF_DPU_Update(object):
             if 'Component image is identical' in task_state['message']:
                 return False
             elif 'Wait for background copy operation' in task_state['message']:
-                raise Err_Exception(Err_Num.BMC_BACKGROUND_BUSY, 'Please try to update the firmware later')
+                # Instead of raising exception, retry for 20 minutes
+                print("BMC is busy with background operation, waiting for up to 20 minutes...")
+                timeout = 60 * 20  # 20 minutes
+                start = int(time.time())
+                end = start + timeout
+                while True:
+                    cur = int(time.time())
+                    if cur > end:
+                        raise Err_Exception(Err_Num.BMC_BACKGROUND_BUSY, 'BMC background operation did not complete within 20 minutes')
+                    self._print_process(100 * (cur - start) / timeout)
+                    time.sleep(10)  # Check every 10 seconds
+                    try:
+                        task_state = self._get_task_status(task_handle)
+                        if 'Wait for background copy operation' not in task_state['message']:
+                            # Background operation completed, continue with task
+                            self._print_process(100)
+                            print()
+                            return self._wait_task(task_handle, max_second, check_step, err_handler)
+                    except Exception as e:
+                        # If we can't get task status, continue waiting
+                        pass
             raise Err_Exception(Err_Num.TASK_FAILED, task_state['message'])
         return True
 
