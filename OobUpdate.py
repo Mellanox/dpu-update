@@ -19,6 +19,7 @@ import bf_dpu_update
 # Version of this script tool
 Version = '25.04-2.1'
 task_dir = None
+debug = False
 
 def get_arg_parser():
     parser = argparse.ArgumentParser()
@@ -53,8 +54,9 @@ def cleanup():
             shutil.rmtree(task_dir)
 
 def signal_handler(signum, frame):
-    print("Signal received: {}".format(signum))
-    cleanup()
+    global debug
+    if not debug:
+        cleanup()
     sys.exit(0)
 
 def create_random_suffix():
@@ -178,6 +180,8 @@ def main():
     info_data = None
     new_fw_file_path = None
     global task_dir
+    global debug
+    debug = args.debug
 
     if args.show_version:
         print(Version)
