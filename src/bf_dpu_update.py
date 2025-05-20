@@ -37,12 +37,13 @@ class BF_DPU_Update(object):
     }
 
 
-    def __init__(self, bmc_ip, bmc_port, username, password, fw_file_path, module, oem_fru, skip_same_version, debug=False, log_file=None, use_curl=True, bfb_update_protocol = None, reset_bios = False, lfwp = False):
+    def __init__(self, bmc_ip, bmc_port, username, password, fw_file_path, task_dir, module, oem_fru, skip_same_version, debug=False, log_file=None, use_curl=True, bfb_update_protocol = None, reset_bios = False, lfwp = False):
         self.bmc_ip            = self._parse_bmc_addr(bmc_ip)
         self.bmc_port          = bmc_port
         self.username          = username
         self.password          = password
         self.fw_file_path      = fw_file_path
+        self.task_dir          = task_dir
         self.module            = module
         self.oem_fru           = oem_fru
         self.skip_same_version = skip_same_version
@@ -93,25 +94,25 @@ class BF_DPU_Update(object):
 
 
     def _http_get(self, url, headers=None, timeout=(60, 60)):
-        return self.http_accessor(url, 'GET', self.username, self.password, headers, timeout).access()
+        return self.http_accessor(url, 'GET', self.username, self.password, self.task_dir, headers, timeout).access()
 
 
     def _http_post(self, url, data, headers=None, timeout=(120, 120)):
-        return self.http_accessor(url, 'POST', self.username, self.password, headers, timeout).access(data)
+        return self.http_accessor(url, 'POST', self.username, self.password, self.task_dir, headers, timeout).access(data)
 
 
     def _http_patch(self, url, data, headers=None, timeout=(60, 60)):
-        return self.http_accessor(url, 'PATCH', self.username, self.password, headers, timeout).access(data)
+        return self.http_accessor(url, 'PATCH', self.username, self.password, self.task_dir, headers, timeout).access(data)
 
     def _http_put(self, url, data, headers=None, timeout=(60, 60)):
-        return self.http_accessor(url, 'PUT', self.username, self.password, headers, timeout).access(data)
+        return self.http_accessor(url, 'PUT', self.username, self.password, self.task_dir, headers, timeout).access(data)
 
     def _upload_file(self, url, file_path, headers=None, timeout=(60, 60)):
-        return self.http_accessor(url, 'POST', self.username, self.password, headers, timeout).upload_file(file_path)
+        return self.http_accessor(url, 'POST', self.username, self.password, self.task_dir, headers, timeout).upload_file(file_path)
 
 
     def _multi_part_push(self, url, param, headers=None, timeout=(60, 60)):
-        return self.http_accessor(url, 'POST', self.username, self.password, headers, timeout).multi_part_push(param)
+        return self.http_accessor(url, 'POST', self.username, self.password, self.task_dir, headers, timeout).multi_part_push(param)
 
 
     def _get_truncated_data(self, data):
@@ -214,6 +215,9 @@ class BF_DPU_Update(object):
             data += json.dumps(str(resp.headers), indent=4) + '\n'
             data += "[Response Body]:" + '\n'
             data += resp.text + '\n'
+
+        data = data.replace(self.password, '<password>')
+        data = data.replace(self.username, '<username>')
 
         if self.debug:
             print(data, end='')
@@ -796,7 +800,27 @@ class BF_DPU_Update(object):
             if 'Component image is identical' in task_state['message']:
                 return False
             elif 'Wait for background copy operation' in task_state['message']:
-                raise Err_Exception(Err_Num.BMC_BACKGROUND_BUSY, 'Please try to update the firmware later')
+                # Instead of raising exception, retry for 20 minutes
+                print("BMC is busy with background operation, waiting for up to 20 minutes...")
+                timeout = 60 * 20  # 20 minutes
+                start = int(time.time())
+                end = start + timeout
+                while True:
+                    cur = int(time.time())
+                    if cur > end:
+                        raise Err_Exception(Err_Num.BMC_BACKGROUND_BUSY, 'BMC background operation did not complete within 20 minutes')
+                    self._print_process(100 * (cur - start) / timeout)
+                    time.sleep(10)  # Check every 10 seconds
+                    try:
+                        task_state = self._get_task_status(task_handle)
+                        if 'Wait for background copy operation' not in task_state['message']:
+                            # Background operation completed, continue with task
+                            self._print_process(100)
+                            print()
+                            return self._wait_task(task_handle, max_second, check_step, err_handler)
+                    except Exception as e:
+                        # If we can't get task status, continue waiting
+                        pass
             raise Err_Exception(Err_Num.TASK_FAILED, task_state['message'])
         return True
 
@@ -1195,7 +1219,29 @@ class BF_DPU_Update(object):
         self._handle_status_code(response, [200])
 
 
+    def is_lfwp_supported(self):
+        """Check if LFWP.Set action is supported on the BMC"""
+        try:
+            url = self._get_url_base() + '/Systems/Bluefield/Oem/Nvidia'
+            response = self._http_get(url)
+            self.log('Check LFWP.Set support', response)
+            self._handle_status_code(response, [200])
+
+            # Check if Actions/LFWP.Set exists in the response
+            if 'Actions' in response.json() and '#LFWP.Set' in response.json()['Actions']:
+                return True
+            return False
+        except Exception as e:
+            if self.debug:
+                print("Error checking LFWP.Set support: {}".format(e))
+            return False
+
+
     def update_bundle(self):
+        if self.lfwp:
+            if not self.is_lfwp_supported():
+                raise Err_Exception(Err_Num.UNSUPPORTED_MODULE, 'LFWP.Set is not supported on this BMC')
+
         self.validate_arg_for_update()
         self.wait_update_service_ready()
         cur_vers = self.get_all_versions()
