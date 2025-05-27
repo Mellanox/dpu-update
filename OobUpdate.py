@@ -119,8 +119,12 @@ def merge_files(cfg_file_path, fw_file_path, task_dir, task_id):
 
 def extract_info_json(file_path, start_pattern, end_pattern):
     # Open the binary file
-    with open(file_path, 'rb') as f:
-        binary_data = f.read()
+    try:
+        with open(file_path, 'rb') as f:
+            binary_data = f.read()
+    except Exception as e:
+        print("Error opening file: {}".format(e))
+        return None
 
     # Decode the binary data into a string (ignoring decoding errors)
     try:
@@ -157,6 +161,8 @@ def extract_info(new_fw_file_path, task_dir, task_id):
     start_pattern = "This JSON represents"
     end_pattern = "Members@odata.count"
     info_json = extract_info_json(new_fw_file_path, start_pattern, end_pattern)
+    if not info_json:
+        return None
     info_file_name = "{}_{}_info.json".format(task_id, create_random_suffix())
     info_file_path = os.path.join(task_dir, info_file_name)
     try:
@@ -246,6 +252,8 @@ def main():
                     return 1
                 if info_has_softwareid(info_data, 'config-image.bfb') and args.with_config:
                     reset_bios = True
+            else:
+                return 1
         else:
             if args.fw_file_path:
                 new_fw_file_path = args.fw_file_path
@@ -299,8 +307,6 @@ def main():
         if args.clear_config:
             dpu_update.reset_config()
 
-        if not args.debug:
-            cleanup()
         return 0
 
     except bf_dpu_update.Err_Exception as e:
@@ -330,4 +336,7 @@ signal.signal(signal.SIGTERM, signal_handler)
 
 if __name__ == '__main__':
     ret = main()
+    if not debug:
+        cleanup()
+
     sys.exit(ret)
