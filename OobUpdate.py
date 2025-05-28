@@ -283,6 +283,14 @@ def main():
             dpu_update.show_all_versions()
             return 0
 
+        mode = dpu_update.get_dpu_mode()
+        if debug:
+            print('DPU mode: {}'.format(mode))
+
+        if mode == 'NicMode' and args.lfwp:
+            print('Live Firmware Update patch is not supported in NIC mode')
+            return 1
+
         if args.fw_file_path is not None or args.oem_fru is not None:
             dpu_update.do_update()
 
