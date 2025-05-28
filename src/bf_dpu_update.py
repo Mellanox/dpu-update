@@ -1151,6 +1151,18 @@ class BF_DPU_Update(object):
         return state
 
 
+    def get_dpu_mode(self):
+        try:
+            url = self._get_url_base() + '/Systems/Bluefield/Oem/Nvidia'
+            response = self._http_get(url)
+            self.log('Get DPU(ARM) mode', response)
+            self._handle_status_code(response, [200])
+            mode = response.json()['Mode']
+        except Exception as e:
+            raise Err_Exception(Err_Num.BAD_RESPONSE_FORMAT, 'Failed to extract DPU mode')
+        return mode
+
+
     def _wait_for_dpu_ready(self):
         print('Waiting for the BFB installation to finish')
         timeout = 60 * 60 # Wait up to 60 minutes
