@@ -16,6 +16,8 @@ import stat
 import datetime
 from multiprocessing import Process
 from error_num import *
+import random
+import time
 
 
 class BF_DPU_Update(object):
@@ -600,7 +602,8 @@ class BF_DPU_Update(object):
             state   = response.json()['TaskState']
             status  = response.json()['TaskStatus']
             message = response.json()['Messages']
-            return {'state': state, 'status': status, 'percent': percent, 'message': str(message)}
+            payload = response.json()['Payload']
+            return {'state': state, 'status': status, 'percent': percent, 'message': str(message), 'payload': payload}
         except:
             raise Err_Exception(Err_Num.BAD_RESPONSE_FORMAT, 'Failed to extract task status')
 
@@ -1419,7 +1422,68 @@ class BF_DPU_Update(object):
         self.reboot_bmc()
 
 
+    def wait_for_background_copy(self, timeout_minutes=20):
+        """
+        Wait for BMC background copy operation to complete.
+
+        Args:
+            timeout_minutes (int): Maximum time to wait in minutes (default 20)
+
+        Returns:
+            None
+
+        Raises:
+            Err_Exception: If background copy doesn't complete within timeout
+        """
+        print("Waiting for BMC background copy to complete...")
+        timeout = 60 * timeout_minutes  # Convert minutes to seconds
+        start = int(time.time())
+        end = start + timeout
+
+        while True:
+            cur = int(time.time())
+            if cur > end:
+                raise Err_Exception(Err_Num.BMC_BACKGROUND_BUSY,
+                                  'BMC background copy operation did not complete within {} minutes'.format(timeout_minutes))
+
+            if not self.is_bmc_background_copy_in_progress():
+                print("BMC background copy completed")
+                self._print_process(100)
+                print()
+                return
+
+            # Show progress
+            self._print_process(100 * (cur - start) / timeout)
+            time.sleep(10)  # Check every 10 seconds
+
+
     def do_update(self):
+        if self.is_bmc_background_copy_in_progress():
+            # Wait for background copy to complete before proceeding
+            self.wait_for_background_copy()
+
+        # Wait for a random time to avoid race condition
+        time.sleep(random.randint(10, 30))
+
+        try:
+            last_task_info = self.get_last_task_info()
+        except Exception as e:
+            if self.debug:
+                print("Error getting last task info: {}".format(e))
+            last_task_info = None
+
+        if last_task_info and last_task_info['state'] == 'Running':
+            print("Waiting for last task to finish:\n    Id:        {}\n    TargetUri: {}".format(last_task_info['id'], last_task_info['payload']['TargetUri']))
+            self.log('Last task info: {}'.format(last_task_info))
+            if last_task_info['payload']['TargetUri'] == '/redfish/v1/UpdateService/Actions/UpdateService.SimpleUpdate':
+                self.log('SimpleUpdate task detected, waiting for 20 minutes')
+                time.sleep(20*60)
+            self._wait_task(last_task_info['id'], max_second=20*60, check_step=2, err_handler=None)
+            time.sleep(random.randint(10, 30))
+            last_task_info = self.get_last_task_info()
+            if last_task_info and last_task_info['state'] == 'Running':
+                raise Err_Exception(Err_Num.BMC_BACKGROUND_BUSY, 'Please try to update the {} later'.format(self.module))
+
         if self.module == 'BMC' or self.module == "CEC":
             self.update_bmc_or_cec((self.module == 'BMC'))
         elif self.module == 'BIOS':
@@ -1523,3 +1587,60 @@ class BF_DPU_Update(object):
 
     def set_info_data(self, info_data):
         self.info_data = info_data
+
+    def get_last_task_id(self):
+        """
+        Get the last task ID from the BMC's TaskService.
+
+        Returns:
+            str: The last task ID, or None if no tasks found
+
+        Raises:
+            Err_Exception: If unable to get task list or parse response
+        """
+        # Get the list of tasks from TaskService
+        url = self._get_url_base() + '/TaskService/Tasks'
+        response = self._http_get(url)
+        self.log('Get Task List', response)
+        self._handle_status_code(response, [200])
+
+        try:
+            # Extract the task list from response
+            tasks = response.json().get('Members', [])
+            if not tasks:
+                return None
+
+            # Get the last task ID from the list
+            last_task = tasks[-1]['@odata.id']
+            last_task_id = last_task.split('/')[-1]
+            return last_task_id
+
+        except Exception as e:
+            raise Err_Exception(Err_Num.BAD_RESPONSE_FORMAT, 'Failed to extract last task ID')
+
+    def get_last_task_info(self):
+        """
+        Get information about the last task.
+
+        Returns:
+            dict: Task information including:
+                - id: Task ID
+                - state: Task state (Running/Completed/etc)
+                - status: Task status (OK/Error)
+                - percent: Completion percentage
+                - message: Task message
+
+        Raises:
+            Err_Exception: If no tasks found or unable to get task info
+        """
+        task_id = self.get_last_task_id()
+        if not task_id:
+            return None
+
+        # Get task status using the existing _get_task_status method
+        task_uri = '/redfish/v1/TaskService/Tasks/{}'.format(task_id)
+        task_state = self._get_task_status(task_uri)
+
+        # Add task ID to the returned info
+        task_state['id'] = task_uri
+        return task_state
