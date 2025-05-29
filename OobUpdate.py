@@ -36,6 +36,7 @@ def get_arg_parser():
     parser.add_argument('-p', '--port',   metavar="<bmc_port>",        dest="bmc_port",     type=str, required=False, help='Port of BMC (443 by default).')
     parser.add_argument('--bios_update_protocol', metavar='<bios_update_protocol>', dest="bios_update_protocol", required=False, help=argparse.SUPPRESS, choices=('HTTP', 'SCP'))
     parser.add_argument('--config',       metavar='<config_file>',     dest="config_file",  type=str, required=False, help='Configuration file')
+    parser.add_argument('--bfcfg',        metavar='<bfcfg>',           dest="bfcfg",        type=str, required=False, help='bf.cfg - BFB configuration file')
     parser.add_argument('-s',             action='append',             metavar="<oem_fru>", dest="oem_fru",           type=str, required=False, help='FRU data in the format "Section:Key=Value"')
     parser.add_argument('-v', '--version',     action='store_true',    dest="show_version",           required=False, help='Show the version of this scripts')
     parser.add_argument('--skip_same_version', action='store_true',    dest="skip_same_version",      required=False, help='Do not upgrade, if upgrade version is the same as current running version')
@@ -63,7 +64,7 @@ def create_random_suffix():
     letters = string.ascii_lowercase
     return ''.join(random.choice(letters) for i in range(5))
 
-def create_cfg_file(username, password, ssh_username, ssh_password, task_dir, task_id, lfwp=None, with_config=False):
+def create_cfg_file(username, password, ssh_username, ssh_password, task_dir, task_id, lfwp=None, with_config=False, bfcfg=None):
     cfg_file_name = "{}_{}.cfg".format(task_id, create_random_suffix())
     cfg_file_path = os.path.join(task_dir, cfg_file_name)
     try:
@@ -82,6 +83,13 @@ def create_cfg_file(username, password, ssh_username, ssh_password, task_dir, ta
             else:
                 cfg_file.write('UPLOAD_CONFIG_IMAGE="no"\n')
 
+            if bfcfg:
+                try:
+                    with open(bfcfg, 'r') as bfcfg_file:
+                        cfg_file.write(bfcfg_file.read())
+                except Exception as e:
+                    print("Error reading bfcfg file: {}".format(e))
+                    return None
         print("Configuration file saved to {}".format(cfg_file_path))
         return cfg_file_path
     except Exception as e:
@@ -228,7 +236,7 @@ def main():
 
             # Only call file creation and merging functions when executing upgrade actions with -T BUNDLE
             # Create configuration file
-            cfg_file_path = create_cfg_file(args.username, args.password, args.ssh_username, args.ssh_password, task_dir, args.task_id, args.lfwp, args.with_config)
+            cfg_file_path = create_cfg_file(args.username, args.password, args.ssh_username, args.ssh_password, task_dir, args.task_id, args.lfwp, args.with_config, args.bfcfg)
             if not cfg_file_path:
                 return 1
 
