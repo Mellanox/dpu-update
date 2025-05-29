@@ -1258,6 +1258,23 @@ class BF_DPU_Update(object):
             self._wait_for_dpu_ready()
             time.sleep(60) # Wait for some time before getting all fw versions
 
+        if self.lfwp:
+            print('Waiting for NIC Firmware to be updated and mlxfwreset to be done')
+            bfb_nic_fw_ver = self.get_info_data_version('NIC')
+            nic_fw_ver = self.get_ver('NIC')
+            start = int(time.time())
+            end = start + 20*60
+            while bfb_nic_fw_ver != nic_fw_ver:
+                cur = int(time.time())
+                if cur > end:
+                    self.log('NIC Firmware update timeout')
+                    break
+                time.sleep(60) # Wait for NIC fw to be updated and mlxfwreset to be done
+                nic_fw_ver = self.get_ver('NIC')
+                self._print_process(100 * (cur - start) / (end - start))
+            self._print_process(100)
+            print()
+
         new_vers = self.get_all_versions()
         self.show_old_new_versions(cur_vers, new_vers, ['BMC', 'CEC', 'ATF', 'UEFI', 'NIC'])
         return True
