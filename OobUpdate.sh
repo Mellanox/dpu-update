@@ -45,6 +45,7 @@ function check_tools()
     commands[4]='ssh-keyscan         127.0.0.1'
     commands[5]='df                  --version'
     commands[6]='tail                --version'
+    commands[7]='sshpass             -V'
 
     miss_tools=""
     for command in "${commands[@]}"; do
