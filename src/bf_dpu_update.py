@@ -39,11 +39,14 @@ class BF_DPU_Update(object):
     }
 
 
-    def __init__(self, bmc_ip, bmc_port, username, password, fw_file_path, task_dir, module, oem_fru, skip_same_version, debug=False, log_file=None, use_curl=True, bfb_update_protocol = None, reset_bios = False, lfwp = False):
+    def __init__(self, bmc_ip, bmc_port, username, password, ssh_username, ssh_password, fw_file_path, task_dir, module, oem_fru, skip_same_version, debug=False, log_file=None, use_curl=True, bfb_update_protocol = None, reset_bios = False, lfwp = False):
         self.bmc_ip            = self._parse_bmc_addr(bmc_ip)
         self.bmc_port          = bmc_port
         self.username          = username
         self.password          = password
+        self.ssh_username      = ssh_username
+        self.ssh_password      = ssh_password
+        self.ssh               = "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
         self.fw_file_path      = fw_file_path
         self.task_dir          = task_dir
         self.module            = module
@@ -483,6 +486,20 @@ class BF_DPU_Update(object):
         return self.simple_update_impl('SCP', self._format_ip(self._get_local_ip()) + '/' + os.path.abspath(self.fw_file_path))
 
 
+    def run_command_on_bmc(self, command):
+        self.log("Run command on BMC: {}".format(command))
+        rc, output = (0, '')
+        try:
+            output = subprocess.check_output(command, stderr=subprocess.STDOUT, shell=True, universal_newlines=True)
+        except subprocess.CalledProcessError as e:
+            rc = e.returncode
+            output = e.output.strip()
+        self.log('Output: {}\nError: {}'.format(output, rc))
+        if rc != 0:
+            raise Err_Exception(output, 'Command "{}" failed with return code {}'.format(command, rc))
+        return output
+
+
     def http_server(self):
         debug = self.debug
         from http.server import HTTPServer, SimpleHTTPRequestHandler
@@ -697,6 +714,27 @@ class BF_DPU_Update(object):
         self.log('Factory Reset BMC', response)
         self._handle_status_code(response, [200])
         self._wait_for_bmc_on()
+
+
+    def _set_bmc_rshim_display_level(self, value):
+        self.run_command_on_bmc("sshpass -p {password} {ssh} {username}@{ip} '{command}'".format(
+            ssh=self.ssh,
+            password=self.ssh_password,
+            username=self.ssh_username,
+            ip=self.bmc_ip,
+            command='/bin/bash -c "echo DISPLAY_LEVEL {value} > /dev/rshim0/misc"'.format(value=value)
+        ))
+
+
+    def get_bmc_rshim_misc(self):
+        misc = self.run_command_on_bmc("sshpass -p {password} {ssh} {username}@{ip} '{command}'".format(
+            ssh=self.ssh,
+            password=self.ssh_password,
+            username=self.ssh_username,
+            ip=self.bmc_ip,
+            command='/bin/bash -c "cat /dev/rshim0/misc"'
+        ))
+        return misc
 
 
     def _print_process(self, percent):
@@ -1244,6 +1282,8 @@ class BF_DPU_Update(object):
         if not self.try_enable_rshim_on_bmc():
             raise Err_Exception(Err_Num.FAILED_TO_ENABLE_BMC_RSHIM, 'Please make sure rshim on Host side is disabled')
 
+        self._set_bmc_rshim_display_level(2)
+
         if self.lfwp:
             self.enable_runtime_rshim()
         self._start_and_wait_simple_update_task()
@@ -1260,17 +1300,16 @@ class BF_DPU_Update(object):
 
         if self.lfwp:
             print('Waiting for NIC Firmware to be updated and mlxfwreset to be done')
-            bfb_nic_fw_ver = self.get_info_data_version('NIC')
-            nic_fw_ver = self.get_ver('NIC')
+            misc = self.get_bmc_rshim_misc()
             start = int(time.time())
-            end = start + 20*60
-            while bfb_nic_fw_ver != nic_fw_ver:
+            end = start + 30*60
+            while 'Runtime upgrade finished' not in misc:
                 cur = int(time.time())
                 if cur > end:
                     self.log('NIC Firmware update timeout')
                     break
                 time.sleep(60) # Wait for NIC fw to be updated and mlxfwreset to be done
-                nic_fw_ver = self.get_ver('NIC')
+                misc = self.get_bmc_rshim_misc()
                 self._print_process(100 * (cur - start) / (end - start))
             self._print_process(100)
             print()
