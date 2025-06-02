@@ -46,6 +46,7 @@ function check_tools()
     commands[5]='df                  --version'
     commands[6]='tail                --version'
     commands[7]='sshpass             -V'
+    commands[8]='pip3                --version'
 
     miss_tools=""
     for command in "${commands[@]}"; do
