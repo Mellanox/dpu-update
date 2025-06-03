@@ -8,15 +8,18 @@ This repository is created only for reference code and example.
 
 OobUpdate.sh is a script for updating various firmware components of the BlueField DPU, such as BMC, CEC, ATF/UEFI, or the complete firmware bundle (bf-fwbundle). It operates out-of-band by using the RedFish API exposed by the DPU’s BMC. The script can be run from any Linux controller host that has network connectivity to the DPU BMC system.
 
-Note: bf-fwbundle is supported starting from version 2.9.2.
+Notes:
+- bf-fwbundle is supported starting from version 2.9.2.
+- LFWP NIC Frimware update is supported starting bf-fwbundle 2.9.3.
 
 ## Usage
 
     usage: OobUpdate.py [-h] -U <username> -P <password> -S <ssh_username>
-                        -K <ssh_password> [-F <firmware_file>] [-T <module>]
+                        -K <ssh_password> [-F <firmware_file>] [-T <module>] [--with-config]
                         [-H <bmc_ip>] [-C] [-o <output_log_file>] [-p <bmc_port>]
-                        [--config <config_file>] [-s <oem_fru>] [-v]
+                        [--config <config_file>] --bfcfg <bfcfg> [-s <oem_fru>] [-v]
                         [--skip_same_version] [-d] [-L <path>] [--task-id <task_id>]
+                        [--lfwp]
 
     options:
     -h, --help            show this help message and exit
@@ -33,8 +36,8 @@ Note: bf-fwbundle is supported starting from version 2.9.2.
                             Output log file
     -p <bmc_port>, --port <bmc_port>
                             Port of BMC (443 by default).
-    --config <config_file>
-                            Configuration file
+    --config <config_file>  Configuration file
+    --bfcfg <bfcfg>       bf.cfg - customized BFB configuration file
     -s <oem_fru>          FRU data in the format "Section:Key=Value"
     -v, --version         Show the version of this scripts
     --skip_same_version   Do not upgrade, if upgrade version is the same as current running version
