@@ -1323,6 +1323,13 @@ class BF_DPU_Update(object):
 
         new_vers = self.get_all_versions()
         self.show_old_new_versions(cur_vers, new_vers, ['BMC', 'CEC', 'ATF', 'UEFI', 'NIC'])
+
+        if self.lfwp:
+            bfb_nic_fw_ver = self.get_info_data_version('NIC')
+            nic_fw_ver = self.get_ver('NIC')
+            if bfb_nic_fw_ver != nic_fw_ver:
+                print('\nWARNING: LFWP NIC firmware update is complete. Please check the running NIC firmware version on the DPU.')
+
         return True
 
 
