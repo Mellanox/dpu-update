@@ -488,7 +488,7 @@ class BF_DPU_Update(object):
         return self.simple_update_impl('SCP', self._format_ip(self._get_local_ip()) + '/' + os.path.abspath(self.fw_file_path))
 
 
-    def run_command_on_bmc(self, command):
+    def run_command_on_bmc(self, command, exit_on_error=True):
         self.log("Run command on BMC: {}".format(command))
         rc, output = (0, '')
         try:
@@ -498,7 +498,10 @@ class BF_DPU_Update(object):
             output = e.output.strip()
         self.log('Output: {}\nError: {}'.format(output, rc))
         if rc != 0:
-            raise Err_Exception(output, 'Command "{}" failed with return code {}'.format(command, rc))
+            if not exit_on_error:
+                print("Error: Failed to run command on BMC: {}".format(output))
+            else:
+                raise Err_Exception(output, 'Command "{}" failed with return code {}'.format(command, rc))
         return output
 
 
@@ -724,7 +727,8 @@ class BF_DPU_Update(object):
             password=self.ssh_password,
             username=self.ssh_username,
             ip=self.bmc_ip,
-            command='/bin/bash -c "echo DISPLAY_LEVEL {value} > /dev/rshim0/misc"'.format(value=value)
+            command='/bin/bash -c "echo DISPLAY_LEVEL {value} > /dev/rshim0/misc"'.format(value=value),
+            exit_on_error=False
         ))
 
 
@@ -734,7 +738,8 @@ class BF_DPU_Update(object):
             password=self.ssh_password,
             username=self.ssh_username,
             ip=self.bmc_ip,
-            command='/bin/bash -c "cat /dev/rshim0/misc"'
+            command='/bin/bash -c "cat /dev/rshim0/misc"',
+            exit_on_error=False
         ))
         return misc
 
