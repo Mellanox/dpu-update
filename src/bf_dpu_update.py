@@ -958,6 +958,16 @@ class BF_DPU_Update(object):
             self._sleep_with_process_with_percent(1, 90, 100)
             print()
             return True
+
+        # Try reboot BMC if rshim is still not enabled
+        self.reboot_bmc()
+        self._sleep_with_process_with_percent(10, 30, 60)
+        self.enable_rshim_on_bmc(True)
+        self._sleep_with_process_with_percent(10, 60, 90)
+        if self.is_rshim_enabled_on_bmc():
+            self._sleep_with_process_with_percent(1, 90, 100)
+            print()
+            return True
         print()
         return False
 
