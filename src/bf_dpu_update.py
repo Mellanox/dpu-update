@@ -223,8 +223,10 @@ class BF_DPU_Update(object):
 
         data = data.replace(self.password, '<password>')
         data = data.replace(self.username, '<username>')
-        data = data.replace(self.ssh_password, '<ssh_password>')
-        data = data.replace(self.ssh_username, '<ssh_username>')
+        if self.ssh_password is not None and self.ssh_password != '':
+            data = data.replace(self.ssh_password, '<ssh_password>')
+        if self.ssh_username is not None and self.ssh_username != '':
+            data = data.replace(self.ssh_username, '<ssh_username>')
 
         if self.debug:
             print(data, end='')
