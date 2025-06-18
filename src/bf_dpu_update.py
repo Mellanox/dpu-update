@@ -1621,7 +1621,7 @@ class BF_DPU_Update(object):
 
     def get_info_data_version(self, module):
         if not self.info_data:
-            return ''
+            return 'NA'
 
         # Map module names to info_data keys
         info_module = {
@@ -1641,7 +1641,7 @@ class BF_DPU_Update(object):
                 elif member["Name"] == "BF3_ATF":
                     member["Version"] = self.extract_atf_uefi_ver_from_fw_file()
                 return member["Version"]
-        return ''
+        return 'NA'
 
     def show_old_new_versions(self, old_vers, new_vers, filter = []):
         print("%10s   %40s  %40s  %40s"%('', 'OLD Version', 'NEW Version', 'BFB Version'))

@@ -126,6 +126,7 @@ def merge_files(cfg_file_path, fw_file_path, task_dir, task_id):
         return None
 
 def extract_info_json(file_path, start_pattern, end_pattern):
+    global debug
     # Open the binary file
     try:
         with open(file_path, 'rb') as f:
@@ -143,22 +144,30 @@ def extract_info_json(file_path, start_pattern, end_pattern):
     # Find starting '{' before the start pattern
     start_idx = text_data.find(start_pattern)
     if start_idx == -1:
-        return "Start pattern not found."
+        if debug:
+            print("Start pattern not found.")
+        return None
 
     # Find the first '{' before the start pattern
     open_brace_idx = text_data.rfind('{', 0, start_idx)
     if open_brace_idx == -1:
-        return "No opening brace '{' found before start pattern."
+        if debug:
+            print("No opening brace '{' found before start pattern.")
+        return None
 
     # Find end pattern and closing '}' after it
     end_idx = text_data.find(end_pattern, open_brace_idx)
     if end_idx == -1:
-        return "End pattern not found."
+        if debug:
+            print("End pattern not found.")
+        return None
 
     # Find the first '}' after the end pattern
     close_brace_idx = text_data.find('}', end_idx)
     if close_brace_idx == -1:
-        return "No closing brace '}' found after end pattern."
+        if debug:
+            print("No closing brace '}' found after end pattern.")
+        return None
 
     # Extract the JSON segment
     json_segment = text_data[open_brace_idx:close_brace_idx+1]
@@ -261,7 +270,7 @@ def main():
                 if info_has_softwareid(info_data, 'config-image.bfb') and args.with_config:
                     reset_bios = True
             else:
-                return 1
+                print("No info file found in the bundle file")
         else:
             if args.fw_file_path:
                 new_fw_file_path = args.fw_file_path
