@@ -17,7 +17,7 @@ import bf_dpu_update
 
 
 # Version of this script tool
-Version = '25.04-2.2'
+Version = '25.04-2.3'
 task_dir = None
 debug = False
 
