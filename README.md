@@ -36,17 +36,36 @@ Notes:
                             Output log file
     -p <bmc_port>, --port <bmc_port>
                             Port of BMC (443 by default).
+    --bios_update_protocol BIOS update protocol: HTTP or SCP
     --config <config_file>  Configuration file
     --bfcfg <bfcfg>       bf.cfg - customized BFB configuration file
     -s <oem_fru>          FRU data in the format "Section:Key=Value"
     -v, --version         Show the version of this scripts
     --skip_same_version   Do not upgrade, if upgrade version is the same as current running version
+    --show_all_versions   Show firmware versions of all modules
     -d, --debug           Show more debug info
     -L <path>             Linux path to save the cfg file
     --task-id <task_id>   Unique identifier for the task
     --lfwp                Live Firmware Update patch. Works only with BUNDLE module.
 
-## Example
+## Examples
+### Show firmware versions for all modules
+    # ./OobUpdate.sh -U root -P Nvidia20240604-- -H 10.237.121.98 --show_all_versions
+           BMC :                              BF-24.10-24
+           CEC :                      00.02.0195.0000_n02
+           ATF :        v2.2(release):4.9.2-14-geeb9a6f94
+         BOARD :                            MT_0000000884
+           BSP :                              4.9.2.13551
+           NIC :                               32.43.2566
+          NODE :                      9c63:c003:00e6:b390
+          OFED :              MLNX_OFED_LINUX-24.10-2.1.8
+            OS : bf-bundle-2.9.2-31_25.02_ubuntu-22.04_prod
+     SYS_IMAGE :                      9c63:c003:00e6:b380
+          UEFI :                     4.9.2-25-ge0f86cebd6
+     ARM_IMAGE :                              4.9.0.13378
+    CONF_IMAGE :                                        2
+     NIC_IMAGE :                               32.43.1014
+
 ### Update BMC firmware
 
     # ./OobUpdate.sh -U root -P Nvidia20240604-- -H 10.237.121.98  -T BMC -F /opt/bf3-bmc-24.04-5_ipn.fwpkg
