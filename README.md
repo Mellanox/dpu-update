@@ -29,7 +29,7 @@ Notes:
     -K <ssh_password>     SSH password of BMC
     -F <firmware_file>    Firmware file path (absolute/relative)
     -T <module>           The module to be updated: BMC|CEC|BIOS|FRU|CONFIG|BUNDLE
-    --with-config         Update the configuration image file during the BUNDLE update process.
+    --with-config         Update the configuration image file during the BUNDLE update process. Do not use –lfwp together with this option.
     -H <bmc_ip>           IP/Host of BMC
     -C                    Reset to factory configuration (Only used for BMC|BIOS)
     -o <output_log_file>, --output <output_log_file>
@@ -41,12 +41,12 @@ Notes:
     --bfcfg <bfcfg>       bf.cfg - customized BFB configuration file
     -s <oem_fru>          FRU data in the format "Section:Key=Value"
     -v, --version         Show the version of this scripts
-    --skip_same_version   Do not upgrade, if upgrade version is the same as current running version
+    --skip_same_version   Do not upgrade, if upgrade version is the same as current running version. Relevant to BIOS|BMC|CEC modules only.
     --show_all_versions   Show firmware versions of all modules
     -d, --debug           Show more debug info
     -L <path>             Linux path to save the cfg file
     --task-id <task_id>   Unique identifier for the task
-    --lfwp                Live Firmware Update patch. Works only with BUNDLE module.
+    --lfwp                Live Firmware Update patch. Works only with BUNDLE module. Do not use  –with-config together with this option.
 
 ## Examples
 ### Show firmware versions for all modules
