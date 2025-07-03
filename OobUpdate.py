@@ -29,7 +29,7 @@ def get_arg_parser():
     parser.add_argument('-K',             metavar="<ssh_password>",    dest="ssh_password",     type=str, required=False, help='SSH password of BMC')
     parser.add_argument('-F',             metavar="<firmware_file>",   dest="fw_file_path", type=str, required=False, help='Firmware file path (absolute/relative)')
     parser.add_argument('-T',             metavar="<module>",          dest="module",       type=str, required=False, help='The module to be updated: BMC|CEC|BIOS|FRU|CONFIG|BUNDLE', choices=('BMC', 'CEC', 'BIOS', 'FRU', 'CONFIG', 'BUNDLE'))
-    parser.add_argument('--with-config',  action='store_true',         dest="with_config",            required=False, help='Update the configuration image file during the BUNDLE update process.', default=False)
+    parser.add_argument('--with-config',  action='store_true',         dest="with_config",            required=False, help='Update the configuration image file during the BUNDLE update process. Do not use –lfwp together with this option.', default=False)
     parser.add_argument('-H',             metavar="<bmc_ip>",          dest="bmc_ip",       type=str, required=False, help='IP/Host of BMC')
     parser.add_argument('-C',             action='store_true',         dest="clear_config",           required=False, help='Reset to factory configuration (Only used for BMC|BIOS)')
     parser.add_argument('-o', '--output', metavar="<output_log_file>", dest="output_file",  type=str, required=False, help='Output log file')
@@ -39,12 +39,12 @@ def get_arg_parser():
     parser.add_argument('--bfcfg',        metavar='<bfcfg>',           dest="bfcfg",        type=str, required=False, help='bf.cfg - BFB configuration file')
     parser.add_argument('-s',             action='append',             metavar="<oem_fru>", dest="oem_fru",           type=str, required=False, help='FRU data in the format "Section:Key=Value"')
     parser.add_argument('-v', '--version',     action='store_true',    dest="show_version",           required=False, help='Show the version of this scripts')
-    parser.add_argument('--skip_same_version', action='store_true',    dest="skip_same_version",      required=False, help='Do not upgrade, if upgrade version is the same as current running version')
+    parser.add_argument('--skip_same_version', action='store_true',    dest="skip_same_version",      required=False, help='Do not upgrade, if upgrade version is the same as current running version. Relevant to BIOS|BMC|CEC modules only.')
     parser.add_argument('--show_all_versions', action='store_true',    dest="show_all_versions",      required=False, help='Show firmware versions of all modules')
     parser.add_argument('-d', '--debug',       action='store_true',    dest="debug",                  required=False, help='Show more debug info')
     parser.add_argument('-L', metavar="<path>", dest="config_path", type=str, required=False, help='Linux path to save the cfg file', default='/tmp')
     parser.add_argument('--task-id',    metavar="<task_id>",    dest="task_id",     type=str, required=False, help='Unique identifier for the task')
-    parser.add_argument('--lfwp',       action='store_true',    dest="lfwp",        required=False, help='Live Firmware Update patch. Works only with BUNDLE module.', default=False)
+    parser.add_argument('--lfwp',       action='store_true',    dest="lfwp",        required=False, help='Live Firmware Update patch. Works only with BUNDLE module. Do not use  –with-config together with this option.', default=False)
     return parser
 
 def cleanup():
