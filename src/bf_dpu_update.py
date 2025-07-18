@@ -39,7 +39,7 @@ class BF_DPU_Update(object):
     }
 
 
-    def __init__(self, bmc_ip, bmc_port, username, password, ssh_username, ssh_password, fw_file_path, task_dir, module, oem_fru, skip_same_version, debug=False, log_file=None, use_curl=True, bfb_update_protocol = None, reset_bios = False, lfwp = False):
+    def __init__(self, bmc_ip, bmc_port, username, password, ssh_username, ssh_password, fw_file_path, task_dir, module, oem_fru, skip_same_version, debug=False, log_file=None, use_curl=True, bfb_update_protocol = None, reset_bios = False, lfwp = False, version = None):
         self.bmc_ip            = self._parse_bmc_addr(bmc_ip)
         self.bmc_port          = bmc_port
         self.username          = username
@@ -66,6 +66,17 @@ class BF_DPU_Update(object):
         self.info_data         = None
         self.reset_bios        = reset_bios
         self.lfwp              = lfwp
+        self.version           = version
+
+        # Validate log_file if provided
+        if self.log_file is not None:
+            accessible_file = os.access(self.log_file, os.W_OK)
+            accessible_dir = os.access(os.path.abspath(os.path.dirname(self.log_file)), os.W_OK)
+            if not accessible_file and not accessible_dir:
+                raise Err_Exception(Err_Num.FILE_NOT_ACCESSIBLE, 'Log file: {}'.format(self.log_file))
+
+            with open(self.log_file, 'a') as f:
+                f.write('OobUpdate Version: {}\n'.format(self.version))
 
 
     def _get_prot_ip_port(self):
@@ -875,13 +886,6 @@ class BF_DPU_Update(object):
         if 'FRU' in items:
             if not self.oem_fru:
                 raise Err_Exception(Err_Num.FRU_NOT_GIVEN)
-
-        # Always validate log_file if provided
-        if self.log_file is not None:
-            accessible_file = os.access(self.log_file, os.W_OK)
-            accessible_dir = os.access(os.path.abspath(os.path.dirname(self.log_file)), os.W_OK)
-            if not accessible_file and not accessible_dir:
-                raise Err_Exception(Err_Num.FILE_NOT_ACCESSIBLE, 'Log file: {}'.format(self.log_file))
 
 
     def validate_arg_for_update(self):

@@ -294,7 +294,8 @@ def main():
                                                  use_curl = True,
                                                  bfb_update_protocol = args.bios_update_protocol,
                                                  reset_bios = reset_bios,
-                                                 lfwp = args.lfwp)
+                                                 lfwp = args.lfwp,
+                                                 version = Version)
         if info_data:
             dpu_update.set_info_data(info_data)
 
@@ -330,7 +331,8 @@ def main():
                                                      args.debug,
                                                      args.output_file,
                                                      bfb_update_protocol = args.bios_update_protocol,
-                                                     use_curl = True)
+                                                     use_curl = True,
+                                                     version = Version)
             dpu_config.do_update()
 
         if args.clear_config:
