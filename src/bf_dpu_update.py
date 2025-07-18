@@ -208,6 +208,52 @@ class BF_DPU_Update(object):
             return '[{}]'.format(ip)
 
 
+    def check_bmc_availability(self, timeout=10):
+        """
+        Check if BMC is available and reachable
+
+        Args:
+            timeout (int): Timeout in seconds for the check
+
+        Returns:
+            bool: True if BMC is available, False otherwise
+
+        Raises:
+            Err_Exception: If BMC is not reachable with specific error details
+        """
+        try:
+            self.log("Checking BMC availability at {}".format(self._format_ip(self.bmc_ip)))
+
+            # Try a simple GET request to the redfish root endpoint
+            url = self._get_prot_ip_port() + '/redfish/v1'
+            response = self._http_get(url, timeout=(timeout, timeout))
+
+            # Check if we get a valid response
+            if response.status_code in [200, 401]:  # 200 = OK, 401 = Unauthorized but BMC is reachable
+                self.log("BMC is available and responding")
+                return True
+            else:
+                self.log("BMC responded with unexpected status code: {}".format(response.status_code))
+                return False
+
+        except Exception as e:
+            error_msg = "BMC at {} is not reachable".format(self._format_ip(self.bmc_ip))
+            print("Error: {}".format(error_msg))
+            self.log("Error: {}: {}".format(error_msg, str(e)))
+
+            # Check if it's a specific connection error
+            if hasattr(e, 'err_num'):
+                if e.err_num == Err_Num.BMC_CONNECTION_FAIL:
+                    raise Err_Exception(Err_Num.BMC_CONNECTION_FAIL, "BMC at {} is not reachable. Please verify the IP address and network connectivity".format(self._format_ip(self.bmc_ip)))
+                elif e.err_num == Err_Num.BMC_CONNECTION_RESET:
+                    raise Err_Exception(Err_Num.BMC_CONNECTION_RESET, "Connection to BMC at {} was reset".format(self._format_ip(self.bmc_ip)))
+                else:
+                    raise e
+            else:
+                # Generic connection error
+                raise Err_Exception(Err_Num.BMC_CONNECTION_FAIL, "Failed to connect to BMC at {}. Please verify the IP address and network connectivity".format(self._format_ip(self.bmc_ip)))
+
+
     def _validate_fru_date_format(self, date_str):
         try:
             datetime.datetime.strptime(date_str, "%d/%m/%Y %H:%M:%S")
@@ -1298,6 +1344,9 @@ class BF_DPU_Update(object):
 
 
     def get_dpu_mode(self):
+        # Check BMC availability before proceeding
+        self.check_bmc_availability()
+
         try:
             url = self._get_url_base() + '/Systems/Bluefield/Oem/Nvidia'
             response = self._http_get(url)
@@ -1382,7 +1431,7 @@ class BF_DPU_Update(object):
 
         self.validate_arg_for_update()
         self.wait_update_service_ready()
-        cur_vers = self.get_all_versions()
+        cur_vers = self._get_all_versions_internal()
         old_bmc_ver = cur_vers['BMC']
 
         if not self.try_enable_rshim_on_bmc():
@@ -1420,7 +1469,7 @@ class BF_DPU_Update(object):
             self._print_process(100)
             print()
 
-        new_vers = self.get_all_versions()
+        new_vers = self._get_all_versions_internal()
         new_bmc_ver = new_vers['BMC']
         self._check_and_clear_sel_if_needed(old_bmc_ver, new_bmc_ver)
 
@@ -1630,6 +1679,9 @@ class BF_DPU_Update(object):
 
 
     def do_update(self):
+        # Check BMC availability before starting any operations
+        self.check_bmc_availability()
+
         if self.is_bmc_background_copy_in_progress():
             # Wait for background copy to complete before proceeding
             self.wait_for_background_copy()
@@ -1672,6 +1724,8 @@ class BF_DPU_Update(object):
 
     def reset_config(self):
         self.validate_arg_for_reset_config()
+        # Check BMC availability before proceeding
+        self.check_bmc_availability()
         if self.module == 'BMC':
             self.factory_reset_bmc()
         elif self.module == 'BIOS':
@@ -1707,14 +1761,19 @@ class BF_DPU_Update(object):
         return uri.split('/')[-1]
 
 
-    def get_all_versions(self):
-        self.validate_arg_for_show_versions()
+    def _get_all_versions_internal(self):
+        """Internal method to get all versions without BMC availability check"""
         uri_list = self._get_firmware_uri_list()
         vers = {}
         for uri in uri_list:
             module = self._get_firmware_module_from_uri(uri)
             vers[module] = self.get_ver_by_uri(uri)
         return vers
+
+
+    def get_all_versions(self):
+        self.validate_arg_for_show_versions()
+        return self._get_all_versions_internal()
 
 
     def show_versions(self, vers):
@@ -1756,7 +1815,9 @@ class BF_DPU_Update(object):
 
 
     def show_all_versions(self):
-        vers = self.get_all_versions()
+        # Check BMC availability before proceeding
+        self.check_bmc_availability()
+        vers = self._get_all_versions_internal()
         self.show_versions(vers)
 
     def set_info_data(self, info_data):
