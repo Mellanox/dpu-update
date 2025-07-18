@@ -719,6 +719,93 @@ class BF_DPU_Update(object):
             print()
 
 
+    def _parse_bmc_version(self, version_str):
+        """
+        Parse BMC version string and return tuple of (major, minor, patch)
+        Example: "BF-24.10-33" -> (24, 10, 33)
+        """
+        if not version_str or not isinstance(version_str, str):
+            return (0, 0, 0)
+
+        # Remove BF- prefix if present
+        version = version_str.replace('BF-', '')
+
+        try:
+            # Split by dots and dashes to get version components
+            parts = version.replace('-', '.').split('.')
+            if len(parts) >= 3:
+                major = int(parts[0])
+                minor = int(parts[1])
+                patch = int(parts[2])
+                return (major, minor, patch)
+        except (ValueError, IndexError):
+            pass
+
+        return (0, 0, 0)
+
+
+    def _compare_bmc_versions(self, version1, version2):
+        """
+        Compare two BMC version strings
+        Returns:
+        -1 if version1 < version2
+         0 if version1 == version2
+         1 if version1 > version2
+        """
+        v1_tuple = self._parse_bmc_version(version1)
+        v2_tuple = self._parse_bmc_version(version2)
+
+        if v1_tuple < v2_tuple:
+            return -1
+        elif v1_tuple > v2_tuple:
+            return 1
+        else:
+            return 0
+
+
+    def clear_sel_log(self):
+        """Clear the System Event Log (SEL) on BMC"""
+        print("Clearing BMC SEL log")
+        url = self._get_url_base() + '/Systems/Bluefield/LogServices/EventLog/Actions/LogService.ClearLog'
+        headers = {
+            'Content-Type': 'application/json'
+        }
+        data = {}
+
+        try:
+            response = self._http_post(url, data=json.dumps(data), headers=headers)
+            self.log('Clear BMC SEL log', response)
+            self._handle_status_code(response, [200, 204])
+            print("BMC SEL log cleared successfully")
+        except Exception as e:
+            if self.debug:
+                print("Warning: Failed to clear BMC SEL log: {}".format(e))
+            # Don't fail the entire update if SEL clearing fails
+            pass
+
+
+    def _check_and_clear_sel_if_needed(self, old_version, new_version):
+        """
+        Check if SEL log should be cleared based on version upgrade/downgrade criteria
+        Clear SEL if old version < BF-24.10-33 and new version >= BF-24.10-33 (upgrade)
+        Clear SEL also if old version >= BF-24.10-33 and new version < BF-24.10-33 (downgrade)
+        """
+        threshold_version = "BF-24.10-33"
+
+        # Check if old version is less than threshold
+        old_vs_threshold = self._compare_bmc_versions(old_version, threshold_version)
+
+        # Check if new version is greater than or equal to threshold
+        new_vs_threshold = self._compare_bmc_versions(new_version, threshold_version)
+
+        if old_vs_threshold < 0 and new_vs_threshold >= 0:
+            print("BMC firmware upgraded from {} to {} (crossing BF-24.10-33 threshold)".format(old_version, new_version))
+            self.clear_sel_log()
+        elif old_vs_threshold >= 0 and new_vs_threshold < 0:
+            print("BMC firmware downgraded from {} to {} (crossing BF-24.10-33 threshold)".format(old_version, new_version))
+            self.clear_sel_log()
+
+
     def factory_reset_bmc(self):
         print("Factory reset BMC configuration")
         url = self._get_url_base() + '/Managers/Bluefield_BMC/Actions/Manager.ResetToDefaults'
@@ -964,6 +1051,11 @@ class BF_DPU_Update(object):
         self.reboot_bmc() if is_bmc else self.try_reboot_cec()
 
         new_ver = self.get_ver('BMC') if is_bmc else self.get_ver('CEC')
+
+        # Clear SEL log if BMC firmware crossed the BF-24.10-33 threshold
+        if is_bmc:
+            self._check_and_clear_sel_if_needed(old_ver, new_ver)
+
         print('OLD {} Firmware Version: \n\t{}'.format(('BMC' if is_bmc else 'CEC'), old_ver))
         print('New {} Firmware Version: \n\t{}'.format(('BMC' if is_bmc else 'CEC'), new_ver))
 
@@ -1291,6 +1383,7 @@ class BF_DPU_Update(object):
         self.validate_arg_for_update()
         self.wait_update_service_ready()
         cur_vers = self.get_all_versions()
+        old_bmc_ver = cur_vers['BMC']
 
         if not self.try_enable_rshim_on_bmc():
             raise Err_Exception(Err_Num.FAILED_TO_ENABLE_BMC_RSHIM, 'Please make sure rshim on Host side is disabled')
@@ -1328,6 +1421,9 @@ class BF_DPU_Update(object):
             print()
 
         new_vers = self.get_all_versions()
+        new_bmc_ver = new_vers['BMC']
+        self._check_and_clear_sel_if_needed(old_bmc_ver, new_bmc_ver)
+
         self.show_old_new_versions(cur_vers, new_vers, ['BMC', 'CEC', 'ATF', 'UEFI', 'NIC'])
 
         if self.lfwp:
