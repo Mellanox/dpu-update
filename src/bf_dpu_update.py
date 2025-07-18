@@ -1311,7 +1311,7 @@ class BF_DPU_Update(object):
 
     def _wait_for_dpu_ready(self):
         print('Waiting for the BFB installation to finish')
-        timeout = 60 * 60 # Wait up to 60 minutes
+        timeout = 60 * 40 # Wait up to 40 minutes
         start   = int(time.time())
         end     = start + timeout
         while True:
