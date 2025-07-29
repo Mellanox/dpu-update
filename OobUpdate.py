@@ -220,11 +220,12 @@ def main():
             print("Argument -F, -C or -s is required while -T is provided")
             return 0
 
-        real_fw_file_path = os.path.realpath(args.fw_file_path)
-        if not os.path.exists(real_fw_file_path):
-            print("File {} does not exist".format(real_fw_file_path))
-            return 1
-        args.fw_file_path = real_fw_file_path
+        if args.fw_file_path:
+            real_fw_file_path = os.path.realpath(args.fw_file_path)
+            if not os.path.exists(real_fw_file_path):
+                print("File {} does not exist".format(real_fw_file_path))
+                return 1
+            args.fw_file_path = real_fw_file_path
 
     # Ensure a task ID is provided
     if not args.task_id:
