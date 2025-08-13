@@ -1623,7 +1623,9 @@ class BF_DPU_Update(object):
 
     def show_versions(self, vers):
         for module, ver in vers.items():
-            print("%10s : %40s"%(module, ver))
+            if module not in ['ARM_IMAGE', 'NIC_IMAGE']:
+                print("%10s : %50s"%(module, ver))
+
 
     def get_info_data_version(self, module):
         if not self.info_data:

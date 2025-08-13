@@ -62,9 +62,7 @@ Notes:
             OS : bf-bundle-2.9.2-31_25.02_ubuntu-22.04_prod
      SYS_IMAGE :                      9c63:c003:00e6:b380
           UEFI :                     4.9.2-25-ge0f86cebd6
-     ARM_IMAGE :                              4.9.0.13378
     CONF_IMAGE :                                        2
-     NIC_IMAGE :                               32.43.1014
 
 ### Update BMC firmware
 
