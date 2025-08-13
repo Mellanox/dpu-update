@@ -1479,7 +1479,7 @@ class BF_DPU_Update(object):
             bfb_nic_fw_ver = self.get_info_data_version('NIC')
             nic_fw_ver = self.get_ver('NIC')
             if bfb_nic_fw_ver != nic_fw_ver:
-                print('\nWARNING: LFWP NIC firmware update is complete. Please check the running NIC firmware version on the DPU.')
+                print('\nWARNING: NIC firmware update done. Live Patch NIC Firmware reset is not supported.')
 
         return True
 
