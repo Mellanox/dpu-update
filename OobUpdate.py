@@ -15,6 +15,8 @@ import signal
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + '/src')
 import bf_dpu_update
 
+import subprocess
+import hashlib
 
 # Version of this script tool
 Version = '25.04-2.4'
@@ -196,6 +198,36 @@ def info_has_softwareid(info_data, softwareid):
             return True
     return False
 
+def get_md5sum(file_path):
+    """
+    Return md5sum of a file.
+    Preferred: system 'md5sum' (GNU coreutils) for a small speed edge on Linux.
+    Fallback: Python hashlib (portable, no external deps).
+    """
+    # Try system md5sum first
+    try:
+        result = subprocess.run(
+            ["md5sum", file_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True
+        )
+        md5_value = result.stdout.strip().split()[0]  # "<md5>  <filename>"
+        if len(md5_value) == 32:
+            return md5_value
+    except Exception:
+        pass
+
+    # Fallback to hashlib
+    h = hashlib.md5()
+    with open(file_path, 'rb') as f:
+        for chunk in iter(lambda: f.read(8192), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
+IS_SPECIAL_TARGET_292_54_BFB = False
+
 def main():
     parser = get_arg_parser()
     args   = parser.parse_args()
@@ -239,6 +271,60 @@ def main():
         except OSError as e:
             print("Error creating directory {}: {}".format(task_dir, e))
             return 1
+
+    # ---------------------------------------------------------------------
+    # Special-case policy:
+    # If the firmware image MD5 is the forbidden one, ignore --with-config.
+    # This uses MD5 (not filename) to prevent evasion via renaming.
+    # Forbidden --with-config BFB image: bf-fwbundle-2.9.2-54_25.02-prod-900-9D3B6-F2SV-PA0_Ax.bfb
+    # BFB_292_54 MD5: 11423d3b87938567b00afbfe2cb9aa03
+    # need to check if 2.9.2-54 has --config BD-config-image-4.9.1.13484-1.0.0.bfb (config version 2.0)
+    # BFB_292_54_CONFIG_MD5: 818594da66fafca76c51d7189144435d
+    # Need to add --with-config BFB image: bf-fwbundle-2.9.3-39_25.08-prod-900-9D3B6-F2SV-PA0_Ax.bfb
+    # BFB_293_39_MD5: 64b27c0fdf47d0974579a43918b56b32
+    # ---------------------------------------------------------------------
+    BFB_292_54_MD5 = '11423d3b87938567b00afbfe2cb9aa03'
+    BFB_292_54_CONFIG_MD5 = '818594da66fafca76c51d7189144435d'
+    BFB_293_39_MD5 = '64b27c0fdf47d0974579a43918b56b32'
+
+    bfb_filename = "N/A"
+    bfb_file_md5 = "N/A"
+    config_filename = "N/A"
+    config_file_md5 = "N/A"
+    global IS_SPECIAL_TARGET_292_54_BFB
+    try:
+        if getattr(args, 'fw_file_path', None) and os.path.exists(args.fw_file_path):
+            bfb_filename = os.path.basename(args.fw_file_path)
+            bfb_file_md5 = get_md5sum(args.fw_file_path)
+            if bfb_file_md5 == BFB_292_54_MD5:
+                if getattr(args, 'with_config', False):
+                    print(f"Detected special image (file: {bfb_filename}, MD5 {bfb_file_md5}). --with-config will be ignored for this image.")
+
+                IS_SPECIAL_TARGET_292_54_BFB = True
+                args.with_config = False
+
+                # check config file and MD5
+                if args.config_file is None or not os.path.exists(args.config_file):
+                    # no config.bfb provided, rejected
+                    print(f"ERROR: Detected special image (file: {bfb_filename}, MD5 {bfb_file_md5}). --config BD-config.bfb needs to be provided")
+                    return 1
+                else:
+                    config_filename = os.path.basename(args.config_file)
+                    config_file_md5 = get_md5sum(args.config_file)
+                    if not config_file_md5 == BFB_292_54_CONFIG_MD5:
+                        # not correct config.bfb provided, rejected
+                        print(f"special image (file: {bfb_filename}, MD5 {bfb_file_md5}) check config file failed: (file: {config_filename}, MD5 {config_file_md5}) ")
+                        return 1
+
+            elif bfb_file_md5 == BFB_293_39_MD5:
+                if not getattr(args, 'with_config', False):
+                    print(f"Detected special image (file: {bfb_filename}, MD5 {bfb_file_md5}). --with-config needs to be added for this image.")
+                args.with_config = True
+
+    except Exception as _e:
+        if debug:
+            print(f"Warning: failed to compute md5 for '{getattr(args, 'fw_file_path', None)}': {_e}")
+    # ---------------------------------------------------------------------
 
     if args.module:
         if not args.username or not args.password:
@@ -285,6 +371,32 @@ def main():
         new_fw_file_path = args.fw_file_path
 
     try:
+        if IS_SPECIAL_TARGET_292_54_BFB:
+            print(f"special image (file: {bfb_filename}, MD5 {bfb_file_md5}) upgrade/degrade step1: config update start")
+            dpu_config = bf_dpu_update.BF_DPU_Update(args.bmc_ip,
+                                                     args.bmc_port,
+                                                     args.username,
+                                                     args.password,
+                                                     args.ssh_username,
+                                                     args.ssh_password,
+                                                     args.config_file,
+                                                     task_dir,
+                                                     'CONFIG',
+                                                     args.oem_fru,
+                                                     args.skip_same_version,
+                                                     args.debug,
+                                                     args.output_file,
+                                                     bfb_update_protocol = args.bios_update_protocol,
+                                                     use_curl = True,
+                                                     version = Version)
+            dpu_config.do_update()
+
+            print(f"special image (file: {bfb_filename}, MD5 {bfb_file_md5}) upgrade/degrade step1: config update success")
+            time.sleep(5)
+            dpu_config.show_all_versions()
+            time.sleep(5)
+            print(f"special image (file: {bfb_filename}, MD5 {bfb_file_md5}) upgrade/degrade step2: FWBundle update start")
+
         dpu_update = bf_dpu_update.BF_DPU_Update(args.bmc_ip,
                                                  args.bmc_port,
                                                  args.username,
@@ -323,24 +435,27 @@ def main():
 
             print("Upgrade finished!")
 
-        if args.config_file is not None:
-            dpu_config = bf_dpu_update.BF_DPU_Update(args.bmc_ip,
-                                                     args.bmc_port,
-                                                     args.username,
-                                                     args.password,
-                                                     args.ssh_username,
-                                                     args.ssh_password,
-                                                     args.config_file,
-                                                     task_dir,
-                                                     'CONFIG',
-                                                     args.oem_fru,
-                                                     args.skip_same_version,
-                                                     args.debug,
-                                                     args.output_file,
-                                                     bfb_update_protocol = args.bios_update_protocol,
-                                                     use_curl = True,
-                                                     version = Version)
-            dpu_config.do_update()
+        if IS_SPECIAL_TARGET_292_54_BFB:
+            print(f"special image (file: {bfb_filename}, MD5 {bfb_file_md5}) upgrade/degrade step2: FWBundle updated success")
+        else:
+            if args.config_file is not None:
+                dpu_config = bf_dpu_update.BF_DPU_Update(args.bmc_ip,
+                                                        args.bmc_port,
+                                                        args.username,
+                                                        args.password,
+                                                        args.ssh_username,
+                                                        args.ssh_password,
+                                                        args.config_file,
+                                                        task_dir,
+                                                        'CONFIG',
+                                                        args.oem_fru,
+                                                        args.skip_same_version,
+                                                        args.debug,
+                                                        args.output_file,
+                                                        bfb_update_protocol = args.bios_update_protocol,
+                                                        use_curl = True,
+                                                        version = Version)
+                dpu_config.do_update()
 
         if args.clear_config:
             dpu_update.reset_config()
