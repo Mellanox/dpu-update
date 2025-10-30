@@ -1453,7 +1453,7 @@ class BF_DPU_Update(object):
             self.send_reset_bios()
             self._wait_for_dpu_ready()
             # This DPU reset is required to update the BMC with the new configuration from the DPU. E.g.: boot options
-            self.send_reset_bios()
+            self.reboot_system()
             self._wait_for_dpu_ready()
             time.sleep(60) # Wait for some time before getting all fw versions
 
