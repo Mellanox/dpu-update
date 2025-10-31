@@ -198,6 +198,11 @@ def info_has_softwareid(info_data, softwareid):
             return True
     return False
 
+
+IS_SPECIAL_TARGET_292_54_BFB = False
+# Constant default config filename in the script directory.
+DEFAULT_292_54_CFG_NAME = "BD-config-2.0-image.bfb"
+
 def get_md5sum(file_path):
     """
     Return md5sum of a file.
@@ -226,7 +231,27 @@ def get_md5sum(file_path):
             h.update(chunk)
     return h.hexdigest()
 
-IS_SPECIAL_TARGET_292_54_BFB = False
+def pick_config_bfb(args):
+    """
+    Resolve config bfb path by priority:
+    1) Use --config if provided and exists(currently NOT USED)
+    2) Use DEFAULT_292_54_CFG_NAME in script dir
+    Return cfg_path
+    """
+    # 1) Respect explicit user input
+    if getattr(args, "config_file", None):
+        if os.path.exists(args.config_file):
+            return args.config_file
+        else:
+            print(f"[warn] --config file not found: {args.config_file}")
+
+    # 2) Look for default name alongside the script
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    default_cfg = os.path.join(script_dir, DEFAULT_292_54_CFG_NAME)
+    if os.path.exists(default_cfg):
+        return default_cfg
+    # Nothing found
+    return None
 
 def main():
     parser = get_arg_parser()
@@ -287,11 +312,13 @@ def main():
     BFB_292_54_CONFIG_MD5 = '818594da66fafca76c51d7189144435d'
     BFB_293_39_MD5 = '64b27c0fdf47d0974579a43918b56b32'
 
-    bfb_filename = "N/A"
-    bfb_file_md5 = "N/A"
-    config_filename = "N/A"
-    config_file_md5 = "N/A"
+    bfb_filename = None
+    bfb_file_md5 = None
+    config_filename = None
+    config_file_md5 = None
+    cfg_path = None
     global IS_SPECIAL_TARGET_292_54_BFB
+    global DEFAULT_292_54_CFG_NAME
     try:
         if getattr(args, 'fw_file_path', None) and os.path.exists(args.fw_file_path):
             bfb_filename = os.path.basename(args.fw_file_path)
@@ -304,17 +331,19 @@ def main():
                 args.with_config = False
 
                 # check config file and MD5
-                if args.config_file is None or not os.path.exists(args.config_file):
-                    # no config.bfb provided, rejected
-                    print(f"ERROR: Detected special image (file: {bfb_filename}, MD5 {bfb_file_md5}). --config BD-config.bfb needs to be provided")
+                cfg_path = pick_config_bfb(args)
+                if not cfg_path:
+                    print(f"ERROR: special image (file: {bfb_filename}, MD5 {bfb_file_md5}). No config bfb('{DEFAULT_292_54_CFG_NAME}') found.")
                     return 1
                 else:
-                    config_filename = os.path.basename(args.config_file)
-                    config_file_md5 = get_md5sum(args.config_file)
+                    config_filename = os.path.basename(cfg_path)
+                    config_file_md5 = get_md5sum(cfg_path)
                     if not config_file_md5 == BFB_292_54_CONFIG_MD5:
                         # not correct config.bfb provided, rejected
                         print(f"special image (file: {bfb_filename}, MD5 {bfb_file_md5}) check config file failed: (file: {config_filename}, MD5 {config_file_md5}) ")
                         return 1
+
+                print(f"special image (file: {bfb_filename}, MD5 {bfb_file_md5}) find config file: (file: {config_filename}, MD5 {config_file_md5}) ")
 
             elif bfb_file_md5 == BFB_293_39_MD5:
                 if not getattr(args, 'with_config', False):
@@ -372,14 +401,14 @@ def main():
 
     try:
         if IS_SPECIAL_TARGET_292_54_BFB:
-            print(f"special image (file: {bfb_filename}, MD5 {bfb_file_md5}) upgrade/degrade step1: config update start")
+            print(f"special image (file: {bfb_filename}, MD5 {bfb_file_md5}) upgrade/downgrade step1: config update start")
             dpu_config = bf_dpu_update.BF_DPU_Update(args.bmc_ip,
                                                      args.bmc_port,
                                                      args.username,
                                                      args.password,
                                                      args.ssh_username,
                                                      args.ssh_password,
-                                                     args.config_file,
+                                                     cfg_path,
                                                      task_dir,
                                                      'CONFIG',
                                                      args.oem_fru,
@@ -391,11 +420,11 @@ def main():
                                                      version = Version)
             dpu_config.do_update()
 
-            print(f"special image (file: {bfb_filename}, MD5 {bfb_file_md5}) upgrade/degrade step1: config update success")
+            print(f"special image (file: {bfb_filename}, MD5 {bfb_file_md5}) upgrade/downgrade step1: config update success")
             time.sleep(5)
             dpu_config.show_all_versions()
             time.sleep(5)
-            print(f"special image (file: {bfb_filename}, MD5 {bfb_file_md5}) upgrade/degrade step2: FWBundle update start")
+            print(f"special image (file: {bfb_filename}, MD5 {bfb_file_md5}) upgrade/downgrade step2: FWBundle update start")
 
         dpu_update = bf_dpu_update.BF_DPU_Update(args.bmc_ip,
                                                  args.bmc_port,
@@ -436,7 +465,7 @@ def main():
             print("Upgrade finished!")
 
         if IS_SPECIAL_TARGET_292_54_BFB:
-            print(f"special image (file: {bfb_filename}, MD5 {bfb_file_md5}) upgrade/degrade step2: FWBundle updated success")
+            print(f"special image (file: {bfb_filename}, MD5 {bfb_file_md5}) upgrade/downgrade step2: FWBundle updated success")
         else:
             if args.config_file is not None:
                 dpu_config = bf_dpu_update.BF_DPU_Update(args.bmc_ip,
