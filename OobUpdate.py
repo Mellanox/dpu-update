@@ -19,7 +19,7 @@ import subprocess
 import hashlib
 
 # Version of this script tool
-Version = '25.04-2.4'
+Version = '25.04-2.5'
 task_dir = None
 debug = False
 
