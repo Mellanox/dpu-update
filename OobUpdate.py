@@ -301,16 +301,28 @@ def main():
     # Special-case policy:
     # If the firmware image MD5 is the forbidden one, ignore --with-config.
     # This uses MD5 (not filename) to prevent evasion via renaming.
-    # Forbidden --with-config BFB image: bf-fwbundle-2.9.2-54_25.02-prod-900-9D3B6-F2SV-PA0_Ax.bfb
-    # BFB_292_54 MD5: 11423d3b87938567b00afbfe2cb9aa03
-    # need to check if 2.9.2-54 has --config BD-config-image-4.9.1.13484-1.0.0.bfb (config version 2.0)
-    # BFB_292_54_CONFIG_MD5: 818594da66fafca76c51d7189144435d
-    # Need to add --with-config BFB image: bf-fwbundle-2.9.3-39_25.08-prod-900-9D3B6-F2SV-PA0_Ax.bfb
-    # BFB_293_39_MD5: 64b27c0fdf47d0974579a43918b56b32
+    # Forbidden --with-config BFB image: 
+    # BFB_292_54 MD5: 
+    # 11423d3b87938567b00afbfe2cb9aa03 bf-fwbundle-2.9.2-54_25.02-prod-900-9D3B6-F2SV-PA0_Ax.bfb
+    # fc73aab423c9fa4d67a383128eff4b8a bf-fwbundle-2.9.2-54_25.02-prod-900-9D3B6-F2SC-EA0_Ax.bfb
+    # downgrade to 2.9.2-54 need to be separated into 2 parts: downgrade config version first, then downgrade FWbundle
+    # oob DIR need to carry config BFB image
+    # BFB_292_54_CONFIG_MD5(PA0 and EA0):
+    # 818594da66fafca76c51d7189144435d BD-config-2.0-image.bfb
+    # Need to add --with-config BFB image:
+    # BFB_293_39_MD5:
+    # 64b27c0fdf47d0974579a43918b56b32 bf-fwbundle-2.9.3-39_25.08-prod-900-9D3B6-F2SV-PA0_Ax.bfb
+    # 6743efbd27bbe91fe59cab8035f636cd bf-fwbundle-2.9.3-39_25.08-prod-900-9D3B6-F2SC-EA0_Ax.bfb
     # ---------------------------------------------------------------------
-    BFB_292_54_MD5 = '11423d3b87938567b00afbfe2cb9aa03'
+    BFB_292_54_MD5_LIST = [
+        '11423d3b87938567b00afbfe2cb9aa03',
+        'fc73aab423c9fa4d67a383128eff4b8a'
+    ]
+    BFB_293_39_MD5_LIST = [
+        '64b27c0fdf47d0974579a43918b56b32',
+        '6743efbd27bbe91fe59cab8035f636cd'
+    ]
     BFB_292_54_CONFIG_MD5 = '818594da66fafca76c51d7189144435d'
-    BFB_293_39_MD5 = '64b27c0fdf47d0974579a43918b56b32'
 
     bfb_filename = None
     bfb_file_md5 = None
@@ -323,7 +335,7 @@ def main():
         if getattr(args, 'fw_file_path', None) and os.path.exists(args.fw_file_path):
             bfb_filename = os.path.basename(args.fw_file_path)
             bfb_file_md5 = get_md5sum(args.fw_file_path)
-            if bfb_file_md5 == BFB_292_54_MD5:
+            if bfb_file_md5 in BFB_292_54_MD5_LIST:
                 if getattr(args, 'with_config', False):
                     print("Detected special image (file: {}, MD5 {}). --with-config will be ignored for this image.".format(bfb_filename, bfb_file_md5))
 
@@ -345,7 +357,7 @@ def main():
 
                 print("special image (file: {}, MD5 {}) find config file: (file: {}, MD5 {}) ".format(bfb_filename, bfb_file_md5, config_filename, config_file_md5))
 
-            elif bfb_file_md5 == BFB_293_39_MD5:
+            elif bfb_file_md5 in BFB_293_39_MD5_LIST:
                 if not getattr(args, 'with_config', False):
                     print("Detected special image (file: {}, MD5 {}). --with-config needs to be added for this image.".format(bfb_filename, bfb_file_md5))
                 args.with_config = True
