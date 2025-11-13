@@ -889,6 +889,57 @@ class BF_DPU_Update(object):
         ))
         return misc
 
+    def query_golden_image_config_dir_exists_on_bmc(self):
+        out = None
+        try:
+            out = self.run_command_on_bmc("sshpass -p {password} {ssh} {username}@{ip} '{command}'".format(
+                ssh=self.ssh,
+                password=self.ssh_password,
+                username=self.ssh_username,
+                ip=self.bmc_ip,
+                command='/bin/bash -c "[ -d /tmp/golden-image-config ] && echo YES || echo NO"',
+                exit_on_error=False
+            ))
+        except Exception as e:
+            print("Query BMC Config DIR failed: {0}".format(str(e)))
+            return False
+
+        if isinstance(out, dict) and "stdout" in out:
+            text = str(out["stdout"]).strip()
+        else:
+            text = str(out).strip()
+
+        print("Query BMC Config DIR: {}".format(text))
+        return text.endswith("YES")
+
+    def ensure_golden_image_config_dir_on_bmc(self, max_retries=6, sleep_secs=5):
+        """
+        Ensure /tmp/golden-image-config exists on BMC with up to `max_retries` attempts.
+        Each attempt:
+        1) query dir existence
+        2) 6 try: reboot BMC + wait_update_service_ready
+        3) query dir existence again
+        Return True on success, else raise Err_Exception on final failure.
+        """
+        for attempt in range(1, max_retries + 1):
+            # query DIR
+            if self.query_golden_image_config_dir_exists_on_bmc():
+                # if DIR come back, exit
+                return True
+
+            try:
+                print("Trying to recover the golden-image-config DIR by BMC reboot: round {}".format(attempt))
+                self.reboot_bmc()
+                self.wait_update_service_ready()
+            except Exception:
+                pass
+
+            # retry with interval sleep_secs(5s)
+            if attempt < max_retries and sleep_secs and sleep_secs > 0:
+                time.sleep(sleep_secs)
+
+        # return failure when exceed max retry
+        return False
 
     def _print_process(self, percent):
         print('\r', end='')
@@ -1689,6 +1740,12 @@ class BF_DPU_Update(object):
         if self.is_bmc_background_copy_in_progress():
             # Wait for background copy to complete before proceeding
             self.wait_for_background_copy()
+
+        # Ensure golden image config DIR exist before config update procedure
+        if not self.ensure_golden_image_config_dir_on_bmc():
+            raise Err_Exception(Err_Num.BMC_GOLDEN_IMAGE_CONFIG_DIR_ERR,
+                'Please make sure /tmp/golden-image-config exist on BMC'
+            )
 
         # Wait for a random time to avoid race condition
         time.sleep(random.randint(10, 30))
