@@ -202,6 +202,7 @@ def info_has_softwareid(info_data, softwareid):
 IS_SPECIAL_TARGET_292_54_BFB = False
 # Constant default config filename in the script directory.
 DEFAULT_292_54_CFG_NAME = "BD-config-2.0-image.bfb"
+DEFAULT_292_54_CFG_VER = '2'
 
 def get_md5sum(file_path):
     """
@@ -413,7 +414,6 @@ def main():
 
     try:
         if IS_SPECIAL_TARGET_292_54_BFB:
-            print("special image (file: {}, MD5 {}) upgrade/downgrade step1: config update start".format(bfb_filename, bfb_file_md5))
             dpu_config = bf_dpu_update.BF_DPU_Update(args.bmc_ip,
                                                      args.bmc_port,
                                                      args.username,
@@ -430,12 +430,23 @@ def main():
                                                      bfb_update_protocol = args.bios_update_protocol,
                                                      use_curl = True,
                                                      version = Version)
-            dpu_config.do_update()
 
-            print("special image (file: {}, MD5 {}) upgrade/downgrade step1: config update success".format(bfb_filename, bfb_file_md5))
-            time.sleep(5)
-            dpu_config.show_all_versions()
-            time.sleep(5)
+            dpu_config.check_bmc_availability()
+            curr_config_ver = dpu_config.get_ver('CONF_IMAGE')
+            print("special image (file: {}, MD5 {}) config: {}".format(bfb_filename, bfb_file_md5, curr_config_ver))
+            if curr_config_ver == DEFAULT_292_54_CFG_VER:
+                # current config version is same as target 292-54's config version 2.0
+                print("special image (file: {}, MD5 {}) upgrade/downgrade step1: config not changed: {}, skip update".format(bfb_filename, bfb_file_md5, curr_config_ver))
+            else:
+                print("special image (file: {}, MD5 {}) upgrade/downgrade step1: config update start".format(bfb_filename, bfb_file_md5))
+
+                dpu_config.do_update()
+
+                print("special image (file: {}, MD5 {}) upgrade/downgrade step1: config update success".format(bfb_filename, bfb_file_md5))
+                time.sleep(5)
+                dpu_config.show_all_versions()
+                time.sleep(5)
+
             print("special image (file: {}, MD5 {}) upgrade/downgrade step2: FWBundle update start".format(bfb_filename, bfb_file_md5))
 
         dpu_update = bf_dpu_update.BF_DPU_Update(args.bmc_ip,
