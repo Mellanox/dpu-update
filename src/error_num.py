@@ -48,6 +48,7 @@ class Err_Num(Enum):
     FRU_NOT_GIVEN                         = 37
     UPDATE_SERVICE_NOT_READY              = 38
     NO_PENDING_CEC_FW                     = 39
+    BMC_GOLDEN_IMAGE_CONFIG_DIR_ERR       = 40
     OTHER_EXCEPTION                       = 127
 
 
@@ -91,6 +92,7 @@ Err_Str = {
    Err_Num.FRU_NOT_GIVEN                  : 'FRU is not given',
    Err_Num.UPDATE_SERVICE_NOT_READY       : 'Update service is not ready(enabled)',
    Err_Num.NO_PENDING_CEC_FW              : 'CEC firmware was not updated',
+   Err_Num.BMC_GOLDEN_IMAGE_CONFIG_DIR_ERR : 'NO /tmp/golden-image-config DIR on BMC',
    Err_Num.OTHER_EXCEPTION                : 'Other Errors',
 }
 
