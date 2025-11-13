@@ -1447,14 +1447,18 @@ class BF_DPU_Update(object):
             time.sleep(120) # Wait for NIC fw to be updated and mlxfwreset to be done
         else:
             self._wait_for_dpu_ready()
+            self._wait_for_system_power_on()
 
         if self.reset_bios and not self.lfwp:
             # This DPU reset is required to apply the configuration that was downloaded from the BMC during the previous boot
             self.send_reset_bios()
             self._wait_for_dpu_ready()
+            self._wait_for_system_power_on()
             # This DPU reset is required to update the BMC with the new configuration from the DPU. E.g.: boot options
+            print('Reboot DPU system')
             self.reboot_system()
             self._wait_for_dpu_ready()
+            self._wait_for_system_power_on()
             time.sleep(60) # Wait for some time before getting all fw versions
 
         if self.lfwp:
@@ -1530,7 +1534,7 @@ class BF_DPU_Update(object):
             'ResetType': 'GracefulRestart'
         }
         response = self._http_post(url, data=json.dumps(data), headers=headers)
-        self.log('Reboot BIOS', response)
+        self.log('Reboot DPU system', response)
         self._handle_status_code(response, [200, 204])
 
 
