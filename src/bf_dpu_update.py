@@ -1485,6 +1485,12 @@ class BF_DPU_Update(object):
         cur_vers = self._get_all_versions_internal()
         old_bmc_ver = cur_vers['BMC']
 
+        # Ensure golden image config DIR exist before config update procedure
+        if self.reset_bios and not self.ensure_golden_image_config_dir_on_bmc():
+            raise Err_Exception(Err_Num.BMC_GOLDEN_IMAGE_CONFIG_DIR_ERR,
+                'Please make sure /tmp/golden-image-config exist on BMC'
+            )
+
         if not self.try_enable_rshim_on_bmc():
             raise Err_Exception(Err_Num.FAILED_TO_ENABLE_BMC_RSHIM, 'Please make sure rshim on Host side is disabled')
 
@@ -1692,6 +1698,12 @@ class BF_DPU_Update(object):
         if not self.try_enable_rshim_on_bmc():
             raise Err_Exception(Err_Num.FAILED_TO_ENABLE_BMC_RSHIM, 'Please make sure rshim on Host side is disabled')
 
+        # 0. Ensure golden image config DIR exist before config update procedure
+        if not self.ensure_golden_image_config_dir_on_bmc():
+            raise Err_Exception(Err_Num.BMC_GOLDEN_IMAGE_CONFIG_DIR_ERR,
+                'Please make sure /tmp/golden-image-config exist on BMC'
+            )
+
         # 1. Update config image in DPU BMC Flash using Redfish
         self._start_and_wait_simple_update_task()
 
@@ -1744,12 +1756,6 @@ class BF_DPU_Update(object):
         if self.is_bmc_background_copy_in_progress():
             # Wait for background copy to complete before proceeding
             self.wait_for_background_copy()
-
-        # Ensure golden image config DIR exist before config update procedure
-        if not self.ensure_golden_image_config_dir_on_bmc():
-            raise Err_Exception(Err_Num.BMC_GOLDEN_IMAGE_CONFIG_DIR_ERR,
-                'Please make sure /tmp/golden-image-config exist on BMC'
-            )
 
         # Wait for a random time to avoid race condition
         time.sleep(random.randint(10, 30))
