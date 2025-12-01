@@ -21,7 +21,7 @@ import bf_dpu_update
 from error_num import Err_Exception
 
 # Version of this script tool
-Version = '1.3'
+Version = '1.4'
 task_dir = None
 debug = False
 
