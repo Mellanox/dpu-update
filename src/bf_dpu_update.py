@@ -1023,7 +1023,7 @@ class BF_DPU_Update(object):
 
     # return True:  task completed successfully
     # return False: task cancelled for skip_same_version
-    def _wait_task(self, task_handle, max_second=15*60, check_step=10, err_handler=None):
+    def _wait_task(self, task_handle, max_second=15*60, check_step=10, err_handler=None, allow_exception_retry=False):
         # Check the task status within a loop
         for i in range(1, max_second//check_step + 1):
             task_state = self._get_task_status(task_handle)
@@ -1038,6 +1038,21 @@ class BF_DPU_Update(object):
             print()
         elif task_state['state'] == 'Running':
             raise Err_Exception(Err_Num.TASK_TIMEOUT, "The task {} is timeout".format(task_handle))
+        elif task_state['state'] == 'Exception':
+            if err_handler is not None:
+                err_handler(task_state)
+
+            # For Exception state, provide more nuanced handling
+            if allow_exception_retry:
+                # Check if this might be a transient failure that could be retried
+                message = task_state.get('message', '').lower()
+                if any(keyword in message for keyword in ['transfer', 'connection', 'network', 'link']):
+                    print("Warning: Task failed with potentially recoverable error: {}".format(task_state['message']))
+                    print("This may be retryable on subsequent runs.")
+                    raise Err_Exception(Err_Num.BMC_BACKGROUND_BUSY, 'Task failed with Exception state - may be retryable: {}'.format(task_state['message']))
+
+            # Default behavior: treat Exception as task failure
+            raise Err_Exception(Err_Num.TASK_FAILED, "Task failed with Exception state: {}".format(task_state['message']))
         else:
             if err_handler is not None:
                 err_handler(task_state)
@@ -1773,7 +1788,7 @@ class BF_DPU_Update(object):
             if last_task_info['payload']['TargetUri'] == '/redfish/v1/UpdateService/Actions/UpdateService.SimpleUpdate':
                 self.log('SimpleUpdate task detected, waiting for 20 minutes')
                 time.sleep(20*60)
-            self._wait_task(last_task_info['id'], max_second=20*60, check_step=2, err_handler=None)
+            self._wait_task(last_task_info['id'], max_second=20*60, check_step=2, err_handler=None, allow_exception_retry=True)
             time.sleep(random.randint(10, 30))
             last_task_info = self.get_last_task_info()
             if last_task_info and last_task_info['state'] == 'Running':
