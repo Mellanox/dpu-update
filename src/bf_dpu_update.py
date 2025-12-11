@@ -16,7 +16,6 @@ import stat
 import datetime
 from multiprocessing import Process
 from error_num import *
-from console_logger import ConsoleLogger, ClearErrorReporter
 import random
 import time
 
@@ -68,10 +67,6 @@ class BF_DPU_Update(object):
         self.reset_bios        = reset_bios
         self.lfwp              = lfwp
         self.version           = version
-        
-        # Initialize console logging system
-        self.console_logger = ConsoleLogger(debug=debug)
-        self.error_reporter = ClearErrorReporter(self.console_logger)
 
         # Validate log_file if provided
         if self.log_file is not None:
@@ -242,26 +237,21 @@ class BF_DPU_Update(object):
                 return False
 
         except Exception as e:
-            self.error_reporter.report_connection_failure(
-                self._format_ip(self.bmc_ip), 
-                self.bmc_port
-            )
-            self.log("Connection error details: {}".format(str(e)))
+            error_msg = "BMC at {} is not reachable".format(self._format_ip(self.bmc_ip))
+            print("Error: {}".format(error_msg))
+            self.log("Error: {}: {}".format(error_msg, str(e)))
 
-            # Check if it's a specific connection error and re-raise with message
+            # Check if it's a specific connection error
             if hasattr(e, 'err_num'):
                 if e.err_num == Err_Num.BMC_CONNECTION_FAIL:
-                    raise Err_Exception(Err_Num.BMC_CONNECTION_FAIL, 
-                                      "BMC connection failed - verify IP address and network connectivity")
+                    raise Err_Exception(Err_Num.BMC_CONNECTION_FAIL, "BMC at {} is not reachable. Please verify the IP address and network connectivity".format(self._format_ip(self.bmc_ip)))
                 elif e.err_num == Err_Num.BMC_CONNECTION_RESET:
-                    raise Err_Exception(Err_Num.BMC_CONNECTION_RESET, 
-                                      "BMC connection was reset - network or BMC issue")
+                    raise Err_Exception(Err_Num.BMC_CONNECTION_RESET, "Connection to BMC at {} was reset".format(self._format_ip(self.bmc_ip)))
                 else:
                     raise e
             else:
                 # Generic connection error
-                raise Err_Exception(Err_Num.BMC_CONNECTION_FAIL, 
-                                  "Failed to connect to BMC - verify IP address and network connectivity")
+                raise Err_Exception(Err_Num.BMC_CONNECTION_FAIL, "Failed to connect to BMC at {}. Please verify the IP address and network connectivity".format(self._format_ip(self.bmc_ip)))
 
 
     def _validate_fru_date_format(self, date_str):
@@ -314,32 +304,12 @@ class BF_DPU_Update(object):
             except:
                 msg = ''
 
-        # Handle authentication errors
+        # Raise exception for different cases
         if response.status_code == 401:
             if 'Account temporarily locked out' in msg:
-                # Report authentication error to console/rshim
-                self.error_reporter.report_authentication_failure(
-                    self._format_ip(self.bmc_ip), 
-                    self.username, 
-                    "Account is temporarily locked. Wait and try again."
-                )
                 raise Err_Exception(Err_Num.ACCOUNT_LOCKED, msg)
             elif 'Invalid username or password' in msg:
-                # Report authentication error to console/rshim
-                self.error_reporter.report_authentication_failure(
-                    self._format_ip(self.bmc_ip), 
-                    self.username, 
-                    "Invalid credentials provided"
-                )
                 raise Err_Exception(Err_Num.INVALID_USERNAME_OR_PASSWORD, msg)
-            else:
-                # Generic 401 authentication failure
-                self.error_reporter.report_authentication_failure(
-                    self._format_ip(self.bmc_ip), 
-                    self.username, 
-                    "Authentication failed"
-                )
-                raise Err_Exception(Err_Num.INVALID_USERNAME_OR_PASSWORD, "Authentication failed")
 
         if err_handler is not None:
             err_handler(response)
@@ -477,7 +447,7 @@ class BF_DPU_Update(object):
         if 'Enabled' == self.get_update_service_state():
             return
 
-        self.console_logger.log_info("Waiting for BMC update service to be ready...")
+        print("Wait for update service ready")
         timeout = 60 * 3 # Wait up to 3 minutes
         start   = int(time.time())
         end     = start + timeout
@@ -586,25 +556,9 @@ class BF_DPU_Update(object):
             rc = e.returncode
             output = e.output.strip()
         self.log('Output: {}\nError: {}'.format(output, rc))
-        
         if rc != 0:
-            # Detect SSH authentication failures
-            if any(keyword in output.lower() for keyword in 
-                   ['permission denied', 'authentication failed', 'host key verification failed', 
-                    'connection refused', 'no route to host']):
-                if self.ssh_username:
-                    self.error_reporter.report_ssh_authentication_failure(
-                        self._format_ip(self.bmc_ip), 
-                        self.ssh_username
-                    )
-                else:
-                    self.error_reporter.report_connection_failure(
-                        self._format_ip(self.bmc_ip), 
-                        self.bmc_port
-                    )
-            
             if not exit_on_error:
-                self.console_logger.log_error(f"SSH command failed on BMC: {output}")
+                print("Error: Failed to run command on BMC: {}".format(output))
             else:
                 raise Err_Exception(output, 'Command "{}" failed with return code {}'.format(command, rc))
         return output
@@ -1083,34 +1037,21 @@ class BF_DPU_Update(object):
             self._print_process(100)
             print()
         elif task_state['state'] == 'Running':
-            # Report timeout
-            self.error_reporter.report_upgrade_failure(
-                self.module or "Firmware", 
-                "", 
-                f"Operation timed out after {max_second} seconds"
-            )
             raise Err_Exception(Err_Num.TASK_TIMEOUT, "The task {} is timeout".format(task_handle))
         elif task_state['state'] == 'Exception':
             if err_handler is not None:
                 err_handler(task_state)
 
+            # For Exception state, provide more nuanced handling
             if allow_exception_retry:
                 # Check if this might be a transient failure that could be retried
                 message = task_state.get('message', '').lower()
                 if any(keyword in message for keyword in ['transfer', 'connection', 'network', 'link']):
-                    self.console_logger.log_warning(
-                        f"Task failed with potentially recoverable error: {task_state['message']}"
-                    )
-                    self.console_logger.log_info("This may be retryable on subsequent runs.")
-                    raise Err_Exception(Err_Num.BMC_BACKGROUND_BUSY, 
-                                      'Task failed with Exception state - may be retryable: {}'.format(task_state['message']))
+                    print("Warning: Task failed with potentially recoverable error: {}".format(task_state['message']))
+                    print("This may be retryable on subsequent runs.")
+                    raise Err_Exception(Err_Num.BMC_BACKGROUND_BUSY, 'Task failed with Exception state - may be retryable: {}'.format(task_state['message']))
 
             # Default behavior: treat Exception as task failure
-            self.error_reporter.report_upgrade_failure(
-                self.module or "Firmware", 
-                "", 
-                task_state.get('message', 'Unknown error occurred')
-            )
             raise Err_Exception(Err_Num.TASK_FAILED, "Task failed with Exception state: {}".format(task_state['message']))
         else:
             if err_handler is not None:
@@ -1119,18 +1060,7 @@ class BF_DPU_Update(object):
             if 'Component image is identical' in task_state['message']:
                 return False
             elif 'Wait for background copy operation' in task_state['message']:
-                self.error_reporter.report_upgrade_failure(
-                    self.module or "Firmware", 
-                    "", 
-                    "BMC is busy with another operation. Try again later."
-                )
                 raise Err_Exception(Err_Num.BMC_BACKGROUND_BUSY, 'Please try to update the firmware later')
-
-            self.error_reporter.report_upgrade_failure(
-                self.module or "Firmware", 
-                "", 
-                task_state.get('message', 'Task failed with unknown error')
-            )
             raise Err_Exception(Err_Num.TASK_FAILED, task_state['message'])
         return True
 
@@ -1222,7 +1152,7 @@ class BF_DPU_Update(object):
             raise Err_Exception(Err_Num.BMC_BACKGROUND_BUSY, 'Please try to update the firmware later')
 
         # Start firmware update task
-        self.console_logger.log_info("Starting firmware upload...")
+        print("Start to upload firmware")
         task_handle = self.update_bmc_fw()
         ret = self._wait_task(task_handle, max_second=(20*60 if is_bmc else 4*60), check_step=(10 if is_bmc else 2))
         if not ret:
@@ -1238,9 +1168,8 @@ class BF_DPU_Update(object):
         if is_bmc:
             self._check_and_clear_sel_if_needed(old_ver, new_ver)
 
-        component_name = 'BMC' if is_bmc else 'CEC'
-        self.console_logger.log_info('OLD {} Firmware Version: {}'.format(component_name, old_ver))
-        self.console_logger.log_info('New {} Firmware Version: {}'.format(component_name, new_ver))
+        print('OLD {} Firmware Version: \n\t{}'.format(('BMC' if is_bmc else 'CEC'), old_ver))
+        print('New {} Firmware Version: \n\t{}'.format(('BMC' if is_bmc else 'CEC'), new_ver))
 
 
     def is_rshim_enabled_on_bmc(self):
