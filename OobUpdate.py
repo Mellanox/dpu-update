@@ -488,11 +488,12 @@ def main():
         if dpu_mode_retrieval_error:
             mode = dpu_update.get_dpu_mode()
 
-        if debug and mode:
-            print('DPU mode: {}'.format(mode))
-        else:
+        if not mode:
             print('DPU mode: not retrieved')
             return 1
+
+        if debug:
+            print('DPU mode: {}'.format(mode))
 
         if mode == 'NicMode' and args.lfwp:
             print('Live Firmware Update patch is not supported in NIC mode')
