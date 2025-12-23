@@ -423,6 +423,95 @@ class BF_DPU_Update(object):
         return protocols
 
 
+    def get_simple_update_supported_params(self):
+        """
+        Dynamically discover which parameters the BMC supports for the SimpleUpdate action.
+
+        According to Redfish specification, SimpleUpdate may support these parameters:
+        - ImageURI (required) - URI of the image to apply
+        - TransferProtocol (optional) - Protocol for image transfer (HTTP, HTTPS, SCP, etc.)
+        - Targets (optional) - URIs of target firmware inventory items
+        - Username (optional) - Username for accessing the image URI
+        - Password (optional) - Password for accessing the image URI
+
+        This method checks the BMC's ActionInfo or action definition to determine
+        which optional parameters are supported.
+
+        Returns:
+            dict: Dictionary with parameter info:
+                - 'supported': set of supported parameter names
+                - 'required': set of required parameter names
+        """
+        # Default: Include parameters that are known to work on most BMCs
+        # ImageURI is always required, TransferProtocol and Username are commonly accepted
+        # Targets is the problematic one that some BMCs don't support
+        result = {
+            'supported': {'ImageURI', 'TransferProtocol', 'Username'},
+            'required': {'ImageURI'}
+        }
+
+        url = self._get_url_base() + '/UpdateService'
+        response = self._http_get(url)
+        self.log('Check SimpleUpdate supported parameters', response)
+        self._handle_status_code(response, [200])
+
+        try:
+            simple_update_action = response.json()['Actions']['#UpdateService.SimpleUpdate']
+
+            # Method 1: Check for @Redfish.ActionInfo which provides detailed parameter info
+            if '@Redfish.ActionInfo' in simple_update_action:
+                action_info_uri = simple_update_action['@Redfish.ActionInfo']
+                action_info_url = self._get_prot_ip_port() + action_info_uri
+                action_info_response = self._http_get(action_info_url)
+                self.log('Get SimpleUpdate ActionInfo', action_info_response)
+
+                if action_info_response.status_code == 200:
+                    action_info = action_info_response.json()
+                    if 'Parameters' in action_info:
+                        result['supported'] = set()
+                        result['required'] = set()
+                        for param in action_info['Parameters']:
+                            param_name = param.get('Name')
+                            if param_name:
+                                result['supported'].add(param_name)
+                                if param.get('Required', False):
+                                    result['required'].add(param_name)
+                        if self.debug:
+                            print("SimpleUpdate parameters from ActionInfo: supported={}, required={}".format(
+                                result['supported'], result['required']))
+                        return result
+
+            # Method 2: Check for *@Redfish.AllowableValues annotations in the action
+            # These indicate which optional parameters are supported
+            for key in simple_update_action:
+                if key.endswith('@Redfish.AllowableValues'):
+                    param_name = key.replace('@Redfish.AllowableValues', '')
+                    result['supported'].add(param_name)
+
+            if self.debug:
+                print("SimpleUpdate parameters from AllowableValues: supported={}".format(result['supported']))
+
+        except Exception as e:
+            if self.debug:
+                print("Error discovering SimpleUpdate parameters: {}".format(e))
+
+        return result
+
+
+    def is_simple_update_param_supported(self, param_name):
+        """
+        Check if a specific parameter is supported for SimpleUpdate action.
+
+        Args:
+            param_name: Name of the parameter to check (e.g., 'Targets', 'Username')
+
+        Returns:
+            bool: True if the parameter is supported, False otherwise
+        """
+        params = self.get_simple_update_supported_params()
+        return param_name in params['supported']
+
+
     def get_push_uri(self):
         url = self._get_url_base() + '/UpdateService'
         response = self._http_get(url)
@@ -559,14 +648,49 @@ class BF_DPU_Update(object):
         headers = {
             'Content-Type'     : 'application/json'
         }
-        data = {
+
+        # Build request with all standard parameters including Targets
+        # Most BMCs require Targets, so we include it by default
+        data_with_targets = {
             'TransferProtocol' : protocol,
             'ImageURI'         : image_uri,
             'Targets'          : self.get_simple_update_targets(),
             'Username'         : self._get_local_user()
         }
-        response = self._http_post(url, data=json.dumps(data), headers=headers)
+
+        if self.debug:
+            print("SimpleUpdate request parameters: {}".format(list(data_with_targets.keys())))
+
+        # First attempt: try with Targets parameter (most BMCs need this)
+        response = self._http_post(url, data=json.dumps(data_with_targets), headers=headers)
         self.log('Do Simple Update (Update BFB or Configurations ...)', response)
+
+        # Check if we got a 400 error specifically about Targets not being supported
+        if response.status_code == 400:
+            try:
+                error_info = response.json()
+                error_msg = str(error_info)
+                # Check for "Targets" + "not supported" error pattern
+                if 'Targets' in error_msg and ('NotSupported' in error_msg or 'not supported' in error_msg.lower()):
+                    if self.debug:
+                        print("BMC does not support Targets parameter, retrying without it...")
+
+                    # Retry without Targets parameter
+                    data_without_targets = {
+                        'TransferProtocol' : protocol,
+                        'ImageURI'         : image_uri,
+                        'Username'         : self._get_local_user()
+                    }
+
+                    if self.debug:
+                        print("Retry SimpleUpdate request parameters: {}".format(list(data_without_targets.keys())))
+
+                    response = self._http_post(url, data=json.dumps(data_without_targets), headers=headers)
+                    self.log('Do Simple Update (Retry without Targets)', response)
+            except Exception as e:
+                if self.debug:
+                    print("Error parsing response for retry logic: {}".format(e))
+
         self._handle_status_code(response, [100, 200, 202], self._update_in_progress_err_handler)
         return self._extract_task_handle(response)
 
