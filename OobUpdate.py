@@ -19,7 +19,7 @@ import subprocess
 import hashlib
 
 # Version of this script tool
-Version = '1.6'
+Version = '1.7.1'
 task_dir = None
 debug = False
 
