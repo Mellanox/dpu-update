@@ -18,8 +18,10 @@ import bf_dpu_update
 import subprocess
 import hashlib
 
+from error_num import Err_Exception
+
 # Version of this script tool
-Version = '1.6'
+Version = '1.7.3'
 task_dir = None
 debug = False
 
@@ -474,7 +476,22 @@ def main():
             dpu_update.show_all_versions()
             return 0
 
-        mode = dpu_update.get_dpu_mode()
+        mode = ''
+        dpu_mode_retrieval_error = False
+        try:
+            mode = dpu_update.get_dpu_mode()
+        except Err_Exception as e:
+            dpu_mode_retrieval_error = True
+            print("Rebooting BMC to enable recovery")
+            dpu_update.reboot_bmc()
+
+        if dpu_mode_retrieval_error:
+            mode = dpu_update.get_dpu_mode()
+
+        if not mode:
+            print('DPU mode: not retrieved')
+            return 1
+
         if debug:
             print('DPU mode: {}'.format(mode))
 
