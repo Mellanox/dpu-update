@@ -21,7 +21,7 @@ import hashlib
 from error_num import Err_Exception
 
 # Version of this script tool
-Version = '1.7.3'
+Version = '1.7.4'
 task_dir = None
 debug = False
 
