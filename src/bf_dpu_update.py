@@ -1215,6 +1215,13 @@ class BF_DPU_Update(object):
             )
             raise Err_Exception(Err_Num.TASK_TIMEOUT, "The task {} is timeout".format(task_handle))
         elif task_state['state'] == 'Exception':
+            # Check for "same version" scenario FIRST
+            # When ForceUpdate is false and firmware is identical, BMC returns
+            # TaskState: Exception with "Component image is identical" message.
+            # This should be treated as a skip, not an error.
+            if 'Component image is identical' in task_state['message']:
+                return False  # Signal to caller to skip the update gracefully
+
             if err_handler is not None:
                 err_handler(task_state)
 
