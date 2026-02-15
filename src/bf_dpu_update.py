@@ -1929,8 +1929,16 @@ class BF_DPU_Update(object):
 
         # 2. In order to update the ARM UPVS partition and the corresponding UEFI capsule in eMMC, a factory reset should be triggered
         self.send_reset_bios()
+        self._wait_for_dpu_ready()
+        self._wait_for_system_power_on()
 
-        # 3. BMC reboot flow shall be triggered to load the new configuration
+        # 3. An additional DPU reset is required to apply the configuration on the DPU side
+        print('Reboot DPU system')
+        self.reboot_system()
+        self._wait_for_dpu_ready()
+        self._wait_for_system_power_on()
+
+        # 4. BMC reboot flow shall be triggered to load the new configuration
         self.reboot_bmc()
 
 
