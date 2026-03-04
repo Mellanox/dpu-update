@@ -1082,21 +1082,30 @@ class BF_DPU_Update(object):
         print("Query BMC Config DIR: {}".format(text))
         return text.endswith("YES")
 
-    def ensure_golden_image_config_dir_on_bmc(self, max_retries=6, sleep_secs=5):
+    def ensure_golden_image_config_dir_on_bmc(self, max_retries=3, dir_poll_timeout=120, dir_poll_interval=10):
         """
-        Ensure /tmp/golden-image-config exists on BMC with up to `max_retries` attempts.
-        Each attempt:
-        1) query dir existence
-        2) 6 try: reboot BMC + wait_update_service_ready
-        3) query dir existence again
-        Return True on success, else raise Err_Exception on final failure.
-        """
-        for attempt in range(1, max_retries + 1):
-            # query DIR
-            if self.query_golden_image_config_dir_exists_on_bmc():
-                # if DIR come back, exit
-                return True
+        Ensure /tmp/golden-image-config exists on BMC.
 
+        After each BMC reboot, polls for the directory for up to
+        `dir_poll_timeout` seconds before attempting another reboot.
+        This gives the BMC boot-time service enough time to create
+        the directory.
+
+        Args:
+            max_retries: Maximum number of BMC reboots to attempt.
+            dir_poll_timeout: Seconds to poll for the directory after
+                each reboot.
+            dir_poll_interval: Seconds between directory existence
+                checks.
+
+        Returns:
+            True if the directory exists or was recovered, False
+            otherwise.
+        """
+        if self.query_golden_image_config_dir_exists_on_bmc():
+            return True
+
+        for attempt in range(1, max_retries + 1):
             try:
                 print("Trying to recover the golden-image-config DIR by BMC reboot: round {}".format(attempt))
                 self.reboot_bmc()
@@ -1104,12 +1113,33 @@ class BF_DPU_Update(object):
             except Exception:
                 pass
 
-            # retry with interval sleep_secs(5s)
-            if attempt < max_retries and sleep_secs and sleep_secs > 0:
-                time.sleep(sleep_secs)
+            if self._poll_golden_image_config_dir(dir_poll_timeout, dir_poll_interval):
+                return True
 
-        # return failure when exceed max retry
         return False
+
+    def _poll_golden_image_config_dir(self, timeout, interval):
+        """
+        Poll for /tmp/golden-image-config on BMC until it appears or
+        times out.
+
+        Args:
+            timeout: Maximum seconds to wait.
+            interval: Seconds between checks.
+
+        Returns:
+            True if the directory appeared, False if timed out.
+        """
+        print("Waiting up to {}s for golden-image-config directory...".format(timeout))
+        start = int(time.time())
+        end = start + timeout
+        while int(time.time()) < end:
+            if self.query_golden_image_config_dir_exists_on_bmc():
+                return True
+            remaining = end - int(time.time())
+            if remaining > 0:
+                time.sleep(min(interval, remaining))
+        return self.query_golden_image_config_dir_exists_on_bmc()
 
     def _print_process(self, percent):
         print('\r', end='')
