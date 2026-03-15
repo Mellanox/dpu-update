@@ -937,6 +937,36 @@ class BF_DPU_Update(object):
             print()
 
 
+    def _wait_for_sel_service_ready(self):
+        url = self._get_url_base() + '/Systems/Bluefield/LogServices/EventLog'
+        try:
+            response = self._http_get(url)
+            if response.status_code == 200:
+                return
+        except Exception:
+            pass
+
+        print("Waiting for BMC SEL service to be ready")
+        timeout = 60
+        start   = int(time.time())
+        end     = start + timeout
+        while True:
+            cur = int(time.time())
+            if cur > end:
+                self._print_process(100)
+                break
+            try:
+                response = self._http_get(url)
+                if response.status_code == 200:
+                    self._print_process(100)
+                    break
+            except Exception:
+                pass
+            self._print_process(100 * (cur - start) / timeout)
+            time.sleep(4)
+        print()
+
+
     def _parse_bmc_version(self, version_str):
         """
         Parse BMC version string and return tuple of (major, minor, patch)
@@ -984,6 +1014,7 @@ class BF_DPU_Update(object):
     def clear_sel_log(self):
         """Clear the System Event Log (SEL) on BMC"""
         print("Clearing BMC SEL log")
+        self._wait_for_sel_service_ready()
         url = self._get_url_base() + '/Systems/Bluefield/LogServices/EventLog/Actions/LogService.ClearLog'
         headers = {
             'Content-Type': 'application/json'
