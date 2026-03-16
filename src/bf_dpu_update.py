@@ -712,25 +712,27 @@ class BF_DPU_Update(object):
         self.log('Output: {}\nError: {}'.format(output, rc))
         
         if rc != 0:
-            # Detect SSH authentication failures
-            if any(keyword in output.lower() for keyword in 
-                   ['permission denied', 'authentication failed', 'host key verification failed', 
-                    'connection refused', 'no route to host']):
-                if self.ssh_username:
-                    self.error_reporter.report_ssh_authentication_failure(
-                        self._format_ip(self.bmc_ip), 
-                        self.ssh_username
-                    )
-                else:
-                    self.error_reporter.report_connection_failure(
-                        self._format_ip(self.bmc_ip), 
-                        self.bmc_port
-                    )
-            
+            # Classify error type
+            lower_output = output.lower()
+            if any(kw in lower_output for kw in ['permission denied', 'authentication failed']):
+                err_num = Err_Num.INVALID_USERNAME_OR_PASSWORD
+            elif any(kw in lower_output for kw in ['host key verification failed', 'connection refused', 'no route to host']):
+                err_num = Err_Num.BMC_CONNECTION_FAIL
+            else:
+                err_num = Err_Num.OTHER_EXCEPTION
+
+            # Report to console/rshim
+            if err_num == Err_Num.INVALID_USERNAME_OR_PASSWORD and self.ssh_username:
+                self.error_reporter.report_ssh_authentication_failure(
+                    self._format_ip(self.bmc_ip), self.ssh_username)
+            elif err_num == Err_Num.BMC_CONNECTION_FAIL:
+                self.error_reporter.report_connection_failure(
+                    self._format_ip(self.bmc_ip), self.bmc_port)
+
             if not exit_on_error:
                 self.console_logger.log_error(f"SSH command failed on BMC: {output}")
             else:
-                raise Err_Exception(output, 'Command "{}" failed with return code {}'.format(command, rc))
+                raise Err_Exception(err_num, 'Command "{}" failed with return code {}'.format(command, rc))
         return output
 
 
