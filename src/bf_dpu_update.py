@@ -1646,6 +1646,34 @@ class BF_DPU_Update(object):
         print()
 
 
+    def _wait_for_versions_reported(self, versions):
+        display_modules = ['BMC', 'CEC', 'ATF', 'UEFI', 'NIC']
+        empty_modules = [m for m in display_modules if m in versions and versions[m] == '']
+        if not empty_modules:
+            return
+        print("Waiting for firmware versions to be reported: {}".format(', '.join(empty_modules)))
+        timeout = 25
+        start   = int(time.time())
+        end     = start + timeout
+        while True:
+            cur = int(time.time())
+            if cur > end:
+                self._print_process(100)
+                break
+            time.sleep(5)
+            for m in list(empty_modules):
+                ver = self.get_ver(m)
+                if ver != '':
+                    versions[m] = ver
+                    empty_modules.remove(m)
+            if not empty_modules:
+                self._print_process(100)
+                break
+            else:
+                self._print_process(100 * (cur - start) / timeout)
+        print()
+
+
     def enable_runtime_rshim(self):
         self.log("Enable runtime rshim")
         url = self._get_url_base() + '/Systems/Bluefield/Oem/Nvidia/Actions/LFWP.Set'
@@ -1755,6 +1783,8 @@ class BF_DPU_Update(object):
             self._sleep_with_process(180)
 
         new_vers = self._get_all_versions_internal()
+        self._wait_for_versions_reported(new_vers)
+
         new_bmc_ver = new_vers['BMC']
         self._check_and_clear_sel_if_needed(old_bmc_ver, new_bmc_ver)
 
