@@ -1684,6 +1684,8 @@ class BF_DPU_Update(object):
             self.log('Get DPU(ARM) mode', response)
             self._handle_status_code(response, [200])
             mode = response.json()['Mode']
+        except Err_Exception as e:
+            raise e
         except Exception as e:
             raise Err_Exception(Err_Num.BAD_RESPONSE_FORMAT, 'Failed to extract DPU mode')
         return mode
