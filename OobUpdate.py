@@ -18,10 +18,10 @@ import bf_dpu_update
 import subprocess
 import hashlib
 
-from error_num import Err_Exception
+from error_num import Err_Exception, Err_Num
 
 # Version of this script tool
-Version = '1.7.9'
+Version = '1.8.0'
 task_dir = None
 debug = False
 
@@ -481,6 +481,8 @@ def main():
         try:
             mode = dpu_update.get_dpu_mode()
         except Err_Exception as e:
+            if e.err_num == Err_Num.INVALID_USERNAME_OR_PASSWORD or e.err_num == Err_Num.ACCOUNT_LOCKED:
+                raise e
             dpu_mode_retrieval_error = True
             print("Rebooting BMC to enable recovery")
             dpu_update.reboot_bmc()
