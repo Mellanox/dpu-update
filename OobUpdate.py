@@ -21,7 +21,7 @@ import hashlib
 from error_num import Err_Exception, Err_Num
 
 # Version of this script tool
-Version = '1.8.0'
+Version = '1.8.1'
 task_dir = None
 debug = False
 
@@ -49,6 +49,7 @@ def get_arg_parser():
     parser.add_argument('-L', metavar="<path>", dest="config_path", type=str, required=False, help='Linux path to save the cfg file', default='/tmp')
     parser.add_argument('--task-id',    metavar="<task_id>",    dest="task_id",     type=str, required=False, help='Unique identifier for the task')
     parser.add_argument('--lfwp',       action='store_true',    dest="lfwp",        required=False, help='Live Firmware Update patch. Works only with BUNDLE module. Do not use  –with-config together with this option.', default=False)
+    parser.add_argument('--transfer-retries', metavar="<retries>", dest="transfer_retries", type=int, required=False, help='Number of retry attempts for image transfer failures (default: 3)', default=3)
     return parser
 
 def cleanup():
@@ -431,7 +432,8 @@ def main():
                                                      args.output_file,
                                                      bfb_update_protocol = args.bios_update_protocol,
                                                      use_curl = True,
-                                                     version = Version)
+                                                     version = Version,
+                                                     transfer_retries = args.transfer_retries)
 
             dpu_config.check_bmc_availability()
             curr_config_ver = dpu_config.get_ver('CONF_IMAGE')
@@ -468,7 +470,8 @@ def main():
                                                  bfb_update_protocol = args.bios_update_protocol,
                                                  reset_bios = reset_bios,
                                                  lfwp = args.lfwp,
-                                                 version = Version)
+                                                 version = Version,
+                                                 transfer_retries = args.transfer_retries)
         if info_data:
             dpu_update.set_info_data(info_data)
 
@@ -525,7 +528,8 @@ def main():
                                                         args.output_file,
                                                         bfb_update_protocol = args.bios_update_protocol,
                                                         use_curl = True,
-                                                        version = Version)
+                                                        version = Version,
+                                                        transfer_retries = args.transfer_retries)
                 dpu_config.do_update()
 
         if args.clear_config:
