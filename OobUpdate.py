@@ -21,7 +21,7 @@ import hashlib
 from error_num import Err_Exception, Err_Num
 
 # Version of this script tool
-Version = '1.8.1'
+Version = '1.8.2'
 task_dir = None
 debug = False
 
@@ -87,6 +87,15 @@ def create_cfg_file(username, password, ssh_username, ssh_password, task_dir, ta
                 cfg_file.write('UPLOAD_CONFIG_IMAGE="yes"\n')
             else:
                 cfg_file.write('UPLOAD_CONFIG_IMAGE="no"\n')
+
+            # Check all the files under workaround directory and append their content to the configuration file
+            workaround_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'workaround')
+            if os.path.exists(workaround_dir):
+                for file in os.listdir(workaround_dir):
+                    if file.endswith('.cfg'):
+                        with open(os.path.join(workaround_dir, file), 'r') as workaround_file:
+                            cfg_file.write(workaround_file.read() + "\n")
+                        print("Added workaround file: {}".format(os.path.join(workaround_dir, file)))
 
             if bfcfg:
                 try:
