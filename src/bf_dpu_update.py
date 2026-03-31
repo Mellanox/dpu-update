@@ -40,7 +40,7 @@ class BF_DPU_Update(object):
     }
 
 
-    def __init__(self, bmc_ip, bmc_port, username, password, ssh_username, ssh_password, fw_file_path, task_dir, module, oem_fru, skip_same_version, debug=False, log_file=None, use_curl=True, bfb_update_protocol = None, reset_bios = False, lfwp = False, version = None):
+    def __init__(self, bmc_ip, bmc_port, username, password, ssh_username, ssh_password, fw_file_path, task_dir, module, oem_fru, skip_same_version, debug=False, log_file=None, use_curl=True, bfb_update_protocol = None, reset_bios = False, lfwp = False, version = None, transfer_retries = 3):
         self.bmc_ip            = self._parse_bmc_addr(bmc_ip)
         self.bmc_port          = bmc_port
         self.username          = username
@@ -68,7 +68,8 @@ class BF_DPU_Update(object):
         self.reset_bios        = reset_bios
         self.lfwp              = lfwp
         self.version           = version
-        
+        self.transfer_retries  = max(1, transfer_retries)
+
         # Initialize console logging system
         self.console_logger = ConsoleLogger(debug=debug)
         self.error_reporter = ClearErrorReporter(self.console_logger)
@@ -1291,7 +1292,7 @@ class BF_DPU_Update(object):
             if allow_exception_retry:
                 # Check if this might be a transient failure that could be retried
                 message = task_state.get('message', '').lower()
-                if any(keyword in message for keyword in ['transfer', 'connection', 'network', 'link']):
+                if any(keyword in message for keyword in ['transfer', 'connection', 'network', 'link', 'download']):
                     self.console_logger.log_warning(
                         f"Task failed with potentially recoverable error: {task_state['message']}"
                     )
@@ -1992,15 +1993,31 @@ class BF_DPU_Update(object):
 
 
     def _start_and_wait_simple_update_task(self):
-        protocol, task_handle = self.simple_update()
+        max_retries = self.transfer_retries
 
-        def err_handler(task_state):
-            if protocol == "SCP" and "Please provide server's public key using PublicKeyExchange" in task_state['message']:
-                raise Err_Exception(Err_Num.PUBLIC_KEY_NOT_EXCHANGED)
-            elif protocol == "HTTP" and "Check and restart server's web service" in task_state['message']:
-                raise Err_Exception(Err_Num.HTTP_FILE_SERVER_NOT_ACCESSIBLE, "Server address: {}:{}".format(self._format_ip(self._get_local_ip()), self._local_http_server_port))
+        for attempt in range(1, max_retries + 1):
+            protocol, task_handle = self.simple_update()
 
-        self._wait_task(task_handle, max_second=20*60, check_step=2, err_handler=err_handler)
+            def err_handler(task_state, _protocol=protocol):
+                if _protocol == "SCP" and "Please provide server's public key using PublicKeyExchange" in task_state['message']:
+                    raise Err_Exception(Err_Num.PUBLIC_KEY_NOT_EXCHANGED)
+                elif _protocol == "HTTP" and "Check and restart server's web service" in task_state['message']:
+                    raise Err_Exception(Err_Num.HTTP_FILE_SERVER_NOT_ACCESSIBLE, "Server address: {}:{}".format(self._format_ip(self._get_local_ip()), self._local_http_server_port))
+
+            try:
+                self._wait_task(task_handle, max_second=20*60, check_step=2,
+                               err_handler=err_handler, allow_exception_retry=(max_retries > 1))
+                return
+            except Err_Exception as e:
+                if e.err_num == Err_Num.BMC_BACKGROUND_BUSY and attempt < max_retries:
+                    self.console_logger.log_warning(
+                        "SimpleUpdate attempt {}/{} failed with recoverable error. "
+                        "Retrying in 30 seconds...".format(attempt, max_retries))
+                    self.log("SimpleUpdate retry {}/{}: {}".format(attempt, max_retries, e.msg))
+                    time.sleep(30)
+                    self.wait_update_service_ready()
+                    continue
+                raise
 
 
     def update_conf(self):
