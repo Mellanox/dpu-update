@@ -544,6 +544,8 @@ def main():
         if args.clear_config:
             dpu_update.reset_config()
 
+        dpu_update.disable_ddr5600()
+
         return 0
 
     except bf_dpu_update.Err_Exception as e:

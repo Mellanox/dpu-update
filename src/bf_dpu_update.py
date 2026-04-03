@@ -1840,28 +1840,6 @@ class BF_DPU_Update(object):
             self._wait_for_dpu_ready()
             self._wait_for_system_power_on()
 
-        dpu_part_number = self.get_dpu_part_number()
-        if dpu_part_number == '900-9D3B6-F2SV-PA0':
-            print('DPU Part Number is 900-9D3B6-F2SV-PA0, set DDR frequency to 5200MHz')
-            # Set DDR frequency to 5200MHz
-            enable_ddr5600 = self.get_ddr_frequency()
-            if self.debug:
-                print('Enable_Ddr5600 frequency: ', enable_ddr5600)
-            if enable_ddr5600:
-                self.set_ddr_frequency(False)
-                while self.get_ddr_frequency():
-                    time.sleep(10)
-            else:
-                self.set_ddr_frequency(True)
-                while not self.get_ddr_frequency():
-                    time.sleep(10)
-                self.set_ddr_frequency(False)
-                while self.get_ddr_frequency():
-                    time.sleep(10)
-
-            self.reboot_system()
-            self._wait_for_system_power_on()
-
         if self.reset_bios and not self.lfwp:
             # This DPU reset is required to apply the configuration that was downloaded from the BMC during the previous boot
             self.send_reset_bios()
@@ -1906,6 +1884,31 @@ class BF_DPU_Update(object):
             nic_fw_ver = self.get_ver('NIC')
             if bfb_nic_fw_ver != nic_fw_ver:
                 print('\nWARNING: NIC firmware update done. Live Patch NIC Firmware reset is not supported.')
+
+        return True
+
+    def disable_ddr5600(self):
+        dpu_part_number = self.get_dpu_part_number()
+        if dpu_part_number == '900-9D3B6-F2SV-PA0':
+            print('DPU Part Number is 900-9D3B6-F2SV-PA0, set DDR frequency to 5200MHz')
+            # Set DDR frequency to 5200MHz
+            enable_ddr5600 = self.get_ddr_frequency()
+            if self.debug:
+                print('Enable_Ddr5600 frequency: ', enable_ddr5600)
+            if enable_ddr5600:
+                self.set_ddr_frequency(False)
+                while self.get_ddr_frequency():
+                    time.sleep(10)
+            else:
+                self.set_ddr_frequency(True)
+                while not self.get_ddr_frequency():
+                    time.sleep(10)
+                self.set_ddr_frequency(False)
+                while self.get_ddr_frequency():
+                    time.sleep(10)
+
+            self.reboot_system()
+            self._wait_for_system_power_on()
 
         return True
 
