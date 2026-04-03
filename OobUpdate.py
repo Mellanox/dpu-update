@@ -521,7 +521,13 @@ def main():
         if args.clear_config:
             dpu_update.reset_config()
 
-        dpu_update.disable_ddr5600()
+        dpu_part_number = dpu_update.get_dpu_part_number()
+        if dpu_part_number == '900-9D3B6-F2SV-PA0':
+            print('DPU Part Number is 900-9D3B6-F2SV-PA0, set EnableDdr5600 to false')
+            # Set EnableDdr5600 to false
+            if not dpu_update.disable_ddr5600():
+                print('Failed to set EnableDdr5600 to false')
+                return 1
 
         return 0
 

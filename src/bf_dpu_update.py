@@ -1432,6 +1432,24 @@ class BF_DPU_Update(object):
         self._handle_status_code(response, [200])
         self.reboot_system()
 
+    def _wait_for_ddr_frequency_change(self, enable_ddr5600):
+        rc = True
+        timeout = 60 * 5 # Wait up to 5 minutes
+        start   = int(time.time())
+        end     = start + timeout
+        while True:
+            cur = int(time.time())
+            if cur > end:
+                self.log('DDR frequency change timeout')
+                rc = False
+                break
+            time.sleep(10)
+            if self.get_ddr_frequency() == enable_ddr5600:
+                if self.debug:
+                    print('DDR frequency changed to {}'.format(enable_ddr5600))
+                break
+        return rc
+
     def _wait_for_dpu_ready(self):
         print('Waiting for the BFB installation to finish')
         timeout = 60 * 40 # Wait up to 40 minutes
@@ -1572,27 +1590,23 @@ class BF_DPU_Update(object):
         return True
 
     def disable_ddr5600(self):
-        dpu_part_number = self.get_dpu_part_number()
-        if dpu_part_number == '900-9D3B6-F2SV-PA0':
-            print('DPU Part Number is 900-9D3B6-F2SV-PA0, set DDR frequency to 5200MHz')
-            # Set DDR frequency to 5200MHz
-            enable_ddr5600 = self.get_ddr_frequency()
-            if self.debug:
-                print('Enable_Ddr5600 frequency: ', enable_ddr5600)
-            if enable_ddr5600:
-                self.set_ddr_frequency(False)
-                while self.get_ddr_frequency():
-                    time.sleep(10)
-            else:
-                self.set_ddr_frequency(True)
-                while not self.get_ddr_frequency():
-                    time.sleep(10)
-                self.set_ddr_frequency(False)
-                while self.get_ddr_frequency():
-                    time.sleep(10)
+        enable_ddr5600 = self.get_ddr_frequency()
+        if self.debug:
+            print('Enable_Ddr5600 frequency: ', enable_ddr5600)
+        if enable_ddr5600:
+            self.set_ddr_frequency(False)
+            if not self._wait_for_ddr_frequency_change(False):
+                return False
+        else:
+            self.set_ddr_frequency(True)
+            if not self._wait_for_ddr_frequency_change(True):
+                return False
+            self.set_ddr_frequency(False)
+            if not self._wait_for_ddr_frequency_change(False):
+                return False
 
-            self.reboot_system()
-            self._wait_for_system_power_on()
+        self.reboot_system()
+        self._wait_for_system_power_on()
 
         return True
 
