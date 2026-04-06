@@ -546,11 +546,11 @@ def main():
 
         dpu_part_number = dpu_update.get_dpu_part_number()
         if dpu_part_number == '900-9D3B6-F2SV-PA0':
-            print('DPU Part Number is 900-9D3B6-F2SV-PA0, set EnableDdr5600 to false')
-            # Set EnableDdr5600 to false
-            if not dpu_update.disable_ddr5600():
-                print('Failed to set EnableDdr5600 to false')
-                return 1
+            if bfb_file_md5 not in BFB_292_54_MD5_LIST + BFB_293_39_MD5_LIST:
+                print('DPU Part Number is 900-9D3B6-F2SV-PA0, set EnableDdr5600 to false')
+                if not dpu_update.disable_ddr5600():
+                    print('Failed to set EnableDdr5600 to false')
+                    return 1
 
         return 0
 
