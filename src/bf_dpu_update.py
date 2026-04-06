@@ -1658,7 +1658,7 @@ class BF_DPU_Update(object):
 
     def get_dpu_part_number(self):
         try:
-            url = self._get_url_base() + '/Systems/Bluefield'
+            url = self._get_url_base() + '/Chassis/Bluefield_BMC'
             response = self._http_get(url)
             self.log('Get DPU Part Number', response)
             self._handle_status_code(response, [200])
