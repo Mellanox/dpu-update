@@ -1408,47 +1408,6 @@ class BF_DPU_Update(object):
             raise Err_Exception(Err_Num.BAD_RESPONSE_FORMAT, 'Failed to extract DPU mode')
         return mode
 
-    def get_ddr_frequency(self):
-        url = self._get_url_base() + '/Systems/Bluefield/Bios'
-        response = self._http_get(url)
-        self.log('Get EnableDdr5600', response)
-        self._handle_status_code(response, [200])
-        return response.json()['Attributes']['EnableDdr5600']
-
-    def set_ddr_frequency(self, enable_ddr5600):
-        if self.debug:
-            print("Set EnableDdr5600 to {}".format(enable_ddr5600))
-        url = self._get_url_base() + '/Systems/Bluefield/Bios/Settings'
-        headers = {
-            'Content-Type' : 'application/json'
-        }
-        data = {
-            'Attributes': {
-                'EnableDdr5600': enable_ddr5600,
-            },
-        }
-        response = self._http_patch(url, data=json.dumps(data), headers=headers)
-        self.log('Set EnableDdr5600 to false:', response)
-        self._handle_status_code(response, [200])
-        self.reboot_system()
-
-    def _wait_for_ddr_frequency_change(self, enable_ddr5600):
-        rc = True
-        timeout = 60 * 5 # Wait up to 5 minutes
-        start   = int(time.time())
-        end     = start + timeout
-        while True:
-            cur = int(time.time())
-            if cur > end:
-                self.log('DDR frequency change timeout')
-                rc = False
-                break
-            time.sleep(10)
-            if self.get_ddr_frequency() == enable_ddr5600:
-                if self.debug:
-                    print('DDR frequency changed to {}'.format(enable_ddr5600))
-                break
-        return rc
 
     def _wait_for_dpu_ready(self):
         print('Waiting for the BFB installation to finish')
@@ -1589,27 +1548,6 @@ class BF_DPU_Update(object):
 
         return True
 
-    def disable_ddr5600(self):
-        enable_ddr5600 = self.get_ddr_frequency()
-        if self.debug:
-            print('Enable_Ddr5600 frequency: ', enable_ddr5600)
-        if enable_ddr5600:
-            self.set_ddr_frequency(False)
-            if not self._wait_for_ddr_frequency_change(False):
-                return False
-        else:
-            self.set_ddr_frequency(True)
-            if not self._wait_for_ddr_frequency_change(True):
-                return False
-            self.set_ddr_frequency(False)
-            if not self._wait_for_ddr_frequency_change(False):
-                return False
-
-        self.reboot_system()
-        self._wait_for_system_power_on()
-
-        return True
-
 
     def send_reset_bios(self):
         print("Factory reset BIOS configuration (ResetBios) (will reboot the system)")
@@ -1656,21 +1594,6 @@ class BF_DPU_Update(object):
         self.log('Reboot DPU system', response)
         self._handle_status_code(response, [200, 204])
 
-    def get_dpu_part_number(self):
-        try:
-            url = self._get_url_base() + '/Chassis/Bluefield_BMC'
-            response = self._http_get(url)
-            self.log('Get DPU Part Number', response)
-            self._handle_status_code(response, [200])
-        except Exception as e:
-            return ''
-
-        part_number = ''
-        try:
-            part_number = response.json()['PartNumber']
-        except Exception as e:
-            raise Err_Exception(Err_Num.BAD_RESPONSE_FORMAT, 'Failed to extract DPU Part Number')
-        return part_number
 
     def get_system_power_state(self):
         try:
