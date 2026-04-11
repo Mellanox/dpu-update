@@ -21,7 +21,7 @@ import hashlib
 from error_num import Err_Exception, Err_Num
 
 # Version of this script tool
-Version = '1.8.7'
+Version = '1.8.8'
 task_dir = None
 debug = False
 
@@ -314,8 +314,8 @@ def main():
     # Special-case policy:
     # If the firmware image MD5 is the forbidden one, ignore --with-config.
     # This uses MD5 (not filename) to prevent evasion via renaming.
-    # Forbidden --with-config BFB image: 
-    # BFB_292_54 MD5: 
+    # Forbidden --with-config BFB image:
+    # BFB_292_54 MD5:
     # 11423d3b87938567b00afbfe2cb9aa03 bf-fwbundle-2.9.2-54_25.02-prod-900-9D3B6-F2SV-PA0_Ax.bfb
     # fc73aab423c9fa4d67a383128eff4b8a bf-fwbundle-2.9.2-54_25.02-prod-900-9D3B6-F2SC-EA0_Ax.bfb
     # downgrade to 2.9.2-54 need to be separated into 2 parts: downgrade config version first, then downgrade FWbundle
