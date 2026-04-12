@@ -1810,11 +1810,38 @@ class BF_DPU_Update(object):
         if self.lfwp:
             self.enable_runtime_rshim()
         self._start_and_wait_simple_update_task()
+        rshim_vlan_error = False
         if self.lfwp:
             self.disable_runtime_rshim()
             time.sleep(120) # Wait for NIC fw to be updated and mlxfwreset to be done
         else:
-            self._wait_for_dpu_ready()
+            # Wait for DPU ready while checking rshim log for VLAN errors.
+            # The rshim log is cleared when the DPU reboots from eMMC,
+            # so we check it frequently (every 5s) to catch the narrow window
+            # between the error being logged and the log being cleared.
+            print('Waiting for the BFB installation to finish')
+            timeout = 60 * 40
+            start = int(time.time())
+            end   = start + timeout
+            while True:
+                cur = int(time.time())
+                if cur > end:
+                    self._print_process(100)
+                    break
+                state = self.get_dpu_boot_state()
+                if state == 'OsIsRunning':
+                    self._print_process(100)
+                    break
+                if not rshim_vlan_error:
+                    try:
+                        misc = self.get_bmc_rshim_misc()
+                        if 'Failed to create VLAN' in misc:
+                            rshim_vlan_error = True
+                    except Exception:
+                        pass
+                self._print_process(100 * (cur - start) / timeout)
+                time.sleep(5)
+            print()
             self._wait_for_system_power_on()
 
         if self.reset_bios and not self.lfwp:
@@ -1855,6 +1882,9 @@ class BF_DPU_Update(object):
         self._check_and_clear_sel_if_needed(old_bmc_ver, new_bmc_ver)
 
         self.show_old_new_versions(cur_vers, new_vers, ['BMC', 'CEC', 'ATF', 'UEFI', 'NIC'])
+
+        if rshim_vlan_error:
+            print('\nWARNING: BMC components upgrade was skipped. VLAN error detected in rshim log.')
 
         if self.lfwp:
             bfb_nic_fw_ver = self.get_info_data_version('NIC')
