@@ -702,7 +702,7 @@ class BF_DPU_Update(object):
         return self.simple_update_impl('SCP', self._format_ip(self._get_local_ip()) + '/' + os.path.abspath(self.fw_file_path))
 
 
-    def run_command_on_bmc(self, command, exit_on_error=True):
+    def run_command_on_bmc(self, command, exit_on_error=True, best_effort=False):
         self.log("Run command on BMC: {}".format(command))
         rc, output = (0, '')
         try:
@@ -722,11 +722,19 @@ class BF_DPU_Update(object):
             else:
                 err_num = Err_Num.OTHER_EXCEPTION
 
-            # Report to console/rshim
             if err_num == Err_Num.INVALID_USERNAME_OR_PASSWORD and self.ssh_username:
                 self.error_reporter.report_ssh_authentication_failure(
                     self._format_ip(self.bmc_ip), self.ssh_username)
-            elif err_num == Err_Num.BMC_CONNECTION_FAIL:
+                if exit_on_error or best_effort:
+                    raise Err_Exception(err_num, 'Command "{}" failed with return code {}'.format(command, rc))
+                self.console_logger.log_error(f"SSH command failed on BMC: {output}")
+                return output
+
+            if best_effort:
+                # Optional probes treat temporary SSH loss during update as "sample unavailable".
+                return ''
+
+            if err_num == Err_Num.BMC_CONNECTION_FAIL:
                 self.error_reporter.report_connection_failure(
                     self._format_ip(self.bmc_ip), self.bmc_port)
 
@@ -1082,15 +1090,14 @@ class BF_DPU_Update(object):
         ))
 
 
-    def get_bmc_rshim_misc(self):
+    def get_bmc_rshim_misc(self, best_effort=False):
         misc = self.run_command_on_bmc("sshpass -p {password} {ssh} {username}@{ip} '{command}'".format(
             ssh=self.ssh,
             password=self.ssh_password,
             username=self.ssh_username,
             ip=self.bmc_ip,
-            command='/bin/bash -c "cat /dev/rshim0/misc"',
-            exit_on_error=False
-        ))
+            command='/bin/bash -c "cat /dev/rshim0/misc"'
+        ), best_effort=best_effort)
         return misc
 
     def query_golden_image_config_dir_exists_on_bmc(self):
@@ -1815,6 +1822,11 @@ class BF_DPU_Update(object):
             self.disable_runtime_rshim()
             time.sleep(120) # Wait for NIC fw to be updated and mlxfwreset to be done
         else:
+            target_bmc_ver = self.get_info_data_version('BMC')
+            bmc_update_expected = target_bmc_ver not in ['', 'NA'] and target_bmc_ver != old_bmc_ver
+            rshim_poll_enabled = True
+            bmc_reboot_reported = False
+
             # Wait for DPU ready while checking rshim log for VLAN errors.
             # The rshim log is cleared when the DPU reboots from eMMC,
             # so we check it frequently (every 5s) to catch the narrow window
@@ -1832,13 +1844,17 @@ class BF_DPU_Update(object):
                 if state == 'OsIsRunning':
                     self._print_process(100)
                     break
-                if not rshim_vlan_error:
-                    try:
-                        misc = self.get_bmc_rshim_misc()
-                        if 'Failed to create VLAN' in misc:
-                            rshim_vlan_error = True
-                    except Exception:
-                        pass
+                if rshim_poll_enabled and not rshim_vlan_error:
+                    misc = self.get_bmc_rshim_misc(best_effort=True)
+                    if 'Failed to create VLAN' in misc:
+                        rshim_vlan_error = True
+                    elif misc == '' and bmc_update_expected:
+                        # Once the BMC reboot starts, the misc log is no longer useful for VLAN detection.
+                        if not bmc_reboot_reported:
+                            print()
+                            print("BMC is rebooting.")
+                            bmc_reboot_reported = True
+                        rshim_poll_enabled = False
                 self._print_process(100 * (cur - start) / timeout)
                 time.sleep(5)
             print()
@@ -2238,13 +2254,14 @@ class BF_DPU_Update(object):
 
         for member in self.info_data["Members"]:
             if member["Name"] == info_module[module]:
+                version = member["Version"]
                 if member["Name"] == "BF3_BMC_FW":
-                    member["Version"] = "BF-" + member["Version"]
+                    version = "BF-" + version
                 elif member["Name"] == "BF3_CEC_FW":
-                    member["Version"] = member["Version"] + "_n02"
+                    version = version + "_n02"
                 elif member["Name"] == "BF3_ATF":
-                    member["Version"] = self.extract_atf_uefi_ver_from_fw_file()
-                return member["Version"]
+                    version = self.extract_atf_uefi_ver_from_fw_file()
+                return version
         return 'NA'
 
     def show_old_new_versions(self, old_vers, new_vers, filter = []):
