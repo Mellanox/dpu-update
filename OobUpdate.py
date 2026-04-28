@@ -21,7 +21,7 @@ import hashlib
 from error_num import Err_Exception, Err_Num
 
 # Version of this script tool
-Version = '1.9.0'
+Version = '1.9.1'
 task_dir = None
 debug = False
 
@@ -266,6 +266,15 @@ def pick_config_bfb(args):
     # Nothing found
     return None
 
+def get_update_requiring_ssh(args):
+    if args.module == 'BUNDLE':
+        return 'BUNDLE'
+    if args.module == 'CONFIG':
+        return 'CONFIG'
+    if args.config_file is not None and not args.show_all_versions:
+        return 'CONFIG'
+    return None
+
 def main():
     parser = get_arg_parser()
     args   = parser.parse_args()
@@ -309,6 +318,11 @@ def main():
         except OSError as e:
             print("Error creating directory {}: {}".format(task_dir, e))
             return 1
+
+    ssh_required_update = get_update_requiring_ssh(args)
+    if ssh_required_update and (not args.ssh_username or not args.ssh_password):
+        print("SSH Username -S and SSH Password -K are required for {} update".format(ssh_required_update))
+        return 1
 
     # ---------------------------------------------------------------------
     # Special-case policy:
@@ -386,10 +400,6 @@ def main():
             return 1
 
         if args.module == 'BUNDLE':
-            if not args.ssh_username or not args.ssh_password:
-                print("SSH Username -S and SSH Password -K are required for BUNDLE update")
-                return 1
-
             # Only call file creation and merging functions when executing upgrade actions with -T BUNDLE
             # Create configuration file
             cfg_file_path = create_cfg_file(args.username, args.password, args.ssh_username, args.ssh_password, task_dir, args.task_id, args.lfwp, args.with_config, args.bfcfg)
