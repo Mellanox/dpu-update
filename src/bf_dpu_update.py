@@ -1917,9 +1917,17 @@ class BF_DPU_Update(object):
         headers = {
             'Content-Type' : 'application/json'
         }
-        response = self._http_post(url, data=None, headers=headers)
-        self.log('Factory Reset BIOS (ResetBios)', response)
-        self._handle_status_code(response, [200])
+        try:
+            response = self._http_post(url, data=None, headers=headers)
+            self.log('Factory Reset BIOS (ResetBios)', response)
+            self._handle_status_code(response, [200])
+        except Err_Exception:
+            # bmcweb may be briefly unreachable right after the BFB-induced
+            # BMC reboot; wait for it to come back and retry once.
+            self._wait_for_bmc_on(False)
+            response = self._http_post(url, data=None, headers=headers)
+            self.log('Factory Reset BIOS (ResetBios)', response)
+            self._handle_status_code(response, [200])
         # ResetBios command will send config image to DPU by rshim
         # That will reset the DPU automatically. No need to reboot it again
         # self.reboot_system()
