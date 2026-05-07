@@ -1908,6 +1908,25 @@ class BF_DPU_Update(object):
             if bfb_nic_fw_ver != nic_fw_ver:
                 print('\nWARNING: NIC firmware update done. Live Patch NIC Firmware reset is not supported.')
 
+        if not rshim_vlan_error:
+            mismatched = []
+            for module in ['BMC', 'CEC', 'ATF', 'UEFI', 'NIC']:
+                if module == 'NIC' and self.lfwp:
+                    continue
+                bfb_ver = self.get_info_data_version(module)
+                if bfb_ver in ('', 'NA'):
+                    continue
+                actual_ver = new_vers.get(module, '')
+                if actual_ver != bfb_ver:
+                    mismatched.append((module, actual_ver, bfb_ver))
+            if mismatched:
+                raise Err_Exception(
+                    Err_Num.COMPONENT_NOT_ACTIVATED,
+                    'Components not at BFB target version: ' + ', '.join(
+                        '{} (running {!r}, expected {!r})'.format(m, a, e) for m, a, e in mismatched
+                    )
+                )
+
         return True
 
 
