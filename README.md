@@ -142,6 +142,8 @@ Notes:
 
         Upgrade finished!
 
+If any of BMC, CEC, ATF, UEFI or NIC fail to come up at the BFB target version after the update completes, the script now exits non-zero with an error listing the components that did not activate, instead of printing `Upgrade finished!`. This catches cases where a component was staged but never activated by the BFB installer (for example, when a CEC reset interrupts the BFB-Installer mid-flow).
+
 
 ### Update Config Image
 
