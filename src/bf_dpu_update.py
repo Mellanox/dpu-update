@@ -1909,10 +1909,12 @@ class BF_DPU_Update(object):
                 print('\nWARNING: NIC firmware update done. Live Patch NIC Firmware reset is not supported.')
 
         if not rshim_vlan_error:
+            # NIC is excluded: a NIC firmware downgrade (or any update where
+            # mlxfwreset does not run in-flow) is staged on the card and only
+            # takes effect after a host power cycle, so the running version
+            # at script exit can legitimately differ from the BFB target.
             mismatched = []
-            for module in ['BMC', 'CEC', 'ATF', 'UEFI', 'NIC']:
-                if module == 'NIC' and self.lfwp:
-                    continue
+            for module in ['BMC', 'CEC', 'ATF', 'UEFI']:
                 bfb_ver = self.get_info_data_version(module)
                 if bfb_ver in ('', 'NA'):
                     continue
