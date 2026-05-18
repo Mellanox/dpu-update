@@ -702,16 +702,21 @@ class BF_DPU_Update(object):
         return self.simple_update_impl('SCP', self._format_ip(self._get_local_ip()) + '/' + os.path.abspath(self.fw_file_path))
 
 
-    def run_command_on_bmc(self, command, exit_on_error=True, best_effort=False):
+    def run_command_on_bmc(self, command, exit_on_error=True, best_effort=False, timeout=None):
         self.log("Run command on BMC: {}".format(command))
         rc, output = (0, '')
         try:
-            output = subprocess.check_output(command, stderr=subprocess.STDOUT, shell=True, universal_newlines=True)
+            output = subprocess.check_output(command, stderr=subprocess.STDOUT, shell=True, universal_newlines=True, timeout=timeout)
         except subprocess.CalledProcessError as e:
             rc = e.returncode
             output = e.output.strip()
+        except subprocess.TimeoutExpired:
+            self.log('Command "{}" timed out after {}s'.format(command, timeout))
+            if best_effort:
+                return ''
+            raise Err_Exception(Err_Num.OTHER_EXCEPTION, 'Command "{}" timed out after {}s'.format(command, timeout))
         self.log('Output: {}\nError: {}'.format(output, rc))
-        
+
         if rc != 0:
             # Classify error type
             lower_output = output.lower()
@@ -1090,14 +1095,14 @@ class BF_DPU_Update(object):
         ))
 
 
-    def get_bmc_rshim_misc(self, best_effort=False):
+    def get_bmc_rshim_misc(self, best_effort=False, timeout=None):
         misc = self.run_command_on_bmc("sshpass -p {password} {ssh} {username}@{ip} '{command}'".format(
             ssh=self.ssh,
             password=self.ssh_password,
             username=self.ssh_username,
             ip=self.bmc_ip,
             command='/bin/bash -c "cat /dev/rshim0/misc"'
-        ), best_effort=best_effort)
+        ), best_effort=best_effort, timeout=timeout)
         return misc
 
     def query_golden_image_config_dir_exists_on_bmc(self):
@@ -1845,7 +1850,7 @@ class BF_DPU_Update(object):
                     self._print_process(100)
                     break
                 if rshim_poll_enabled and not rshim_vlan_error:
-                    misc = self.get_bmc_rshim_misc(best_effort=True)
+                    misc = self.get_bmc_rshim_misc(best_effort=True, timeout=30)
                     if 'Failed to create VLAN' in misc:
                         rshim_vlan_error = True
                     elif misc == '' and bmc_update_expected:
